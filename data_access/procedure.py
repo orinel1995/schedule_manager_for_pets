@@ -2,9 +2,7 @@
 Модуль доступа к данным таблицы procedure.
 
 Содержит класс Procedure, предоставляющий операции создания,
-удаления и обновления процедур.
-
-Все операции логируются в общий CSV-лог проекта.
+удаления и обновления процедур для питомцев.
 """
 
 from typing import Optional, Dict, List
@@ -18,7 +16,7 @@ logger = get_logger()
 
 class Procedure:
     """
-    Репозиторий для работы с таблицей procedure.
+    Методы для работы с таблицей procedure.
     """
 
     def __init__(self, db_name: str = "project.db", user: str = "admin"):
@@ -33,13 +31,12 @@ class Procedure:
         self,
         name: str,
         description: Optional[str] = None
-    ) -> int:
+    ) -> Optional[int]:
         """
         Создаёт новую процедуру.
 
         Если процедура с таким именем уже существует,
-        новая запись не создаётся. Возвращается id существующей записи
-        и логируется ошибка.
+        новая запись не создаётся. Возвращается id существующей записи.
 
         :param name: название процедуры (обязательно)
         :param description: описание процедуры (опционально)
@@ -51,7 +48,7 @@ class Procedure:
             cursor.execute("""
                 SELECT id
                 FROM procedure
-                WHERE name = ?
+                WHERE name = ? AND active = 1
                 LIMIT 1
             """, (name,))
 
@@ -62,8 +59,9 @@ class Procedure:
 
                 logger.error(
                     (
-                        f"Попытка создать процедуру с существующим name='{name}'. "
-                        f"Возвращён существующий id={procedure_id}"
+                        f"Попытка создать процедуру с существующим "
+                        f"name='{name}'. Возвращён существующий "
+                        f"id={procedure_id}"
                     ),
                     extra={"user": self.user}
                 )
@@ -78,8 +76,8 @@ class Procedure:
 
         logger.info(
             (
-                f"Создана процедура id={procedure_id}, "
-                f"name='{name}', description='{description}'"
+                f"Создана процедура id={procedure_id}, name='{name}', "
+                f"description='{description}'"
             ),
             extra={"user": self.user}
         )
@@ -89,6 +87,9 @@ class Procedure:
     def update_active(self, procedure_id: int, active: bool) -> None:
         """
         Обновляет статус активности процедуры.
+
+        :param procedure_id: id процедуры
+        :param active: статус активности
         """
         with db_connection(self.db_name) as conn:
             cursor = conn.cursor()
@@ -111,6 +112,9 @@ class Procedure:
     ) -> None:
         """
         Обновляет описание процедуры.
+
+        :param procedure_id: id процедуры
+        :param description: описание
         """
         with db_connection(self.db_name) as conn:
             cursor = conn.cursor()
@@ -129,6 +133,8 @@ class Procedure:
     def delete(self, procedure_id: int) -> None:
         """
         Удаляет процедуру по id.
+
+        :param procedure_id: id процедуры
         """
         with db_connection(self.db_name) as conn:
             cursor = conn.cursor()
@@ -146,8 +152,7 @@ class Procedure:
         """
         Возвращает процедуру по id в виде словаря.
 
-        :param procedure_id: идентификатор процедуры
-        :return: словарь с данными процедуры или None
+        :param procedure_id: id процедуры
         """
         with db_connection(self.db_name) as conn:
             cursor = conn.cursor()
