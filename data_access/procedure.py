@@ -15,9 +15,7 @@ logger = get_logger()
 
 
 class Procedure:
-    """
-    Методы для работы с таблицей procedure.
-    """
+    """Методы для работы с таблицей procedure."""
 
     def __init__(self, db_name: str = "project.db", user: str = "admin"):
         """

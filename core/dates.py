@@ -8,13 +8,39 @@
 """
 
 from datetime import date, datetime
-from typing import Optional
+from typing import Optional, List
+from enum import Enum
 
 
 SUPPORTED_DATE_FORMATS = (
     "%Y-%m-%d",   # 2025-12-01
     "%d.%m.%Y",   # 01.12.2025
 )
+
+
+class WeekDay(Enum):
+    """Для валидации и нормализации пользовательского ввода."""
+    MONDAY = ("пн", "понедельник")
+    TUESDAY = ("вт", "вторник")
+    WEDNESDAY = ("ср", "среда")
+    THURSDAY = ("чт", "четверг")
+    FRIDAY = ("пт", "пятница")
+    SATURDAY = ("сб", "суббота")
+    SUNDAY = ("вс", "воскресенье")
+
+    @classmethod
+    def parse(cls, value: str) -> "WeekDay":
+        normalized = value.strip().lower()
+
+        for day in cls:
+            if normalized in day.value:
+                return day
+
+        raise ValueError(f"Неизвестный день недели: {value}")
+
+    @classmethod
+    def parse_many(cls, value: str) -> List["WeekDay"]:
+        return [cls.parse(part) for part in value.split(",")]
 
 
 def parse_user_date(value: Optional[str]) -> Optional[str]:

@@ -3,13 +3,9 @@
 
 Отвечает за создание, изменение, активацию и получение расписаний процедур
 для питомцев.
-
-Модуль хранит только декларативные правила расписаний,
-фактический расчёт дат выполнения выносится в отдельную логику.
 """
 
 from datetime import date
-from enum import Enum
 from typing import List, Dict, Optional, Union, Iterable
 
 from core.logger import get_logger
@@ -18,38 +14,11 @@ from core.dates import (
     parse_user_date,
     normalize_yearly_date,
     last_day_of_month,
+    WeekDay,
 )
 
 logger = get_logger()
 
-
-# -------------------- ENUM ДНЕЙ НЕДЕЛИ --------------------
-
-class WeekDay(Enum):
-    MONDAY = ("пн", "понедельник")
-    TUESDAY = ("вт", "вторник")
-    WEDNESDAY = ("ср", "среда")
-    THURSDAY = ("чт", "четверг")
-    FRIDAY = ("пт", "пятница")
-    SATURDAY = ("сб", "суббота")
-    SUNDAY = ("вс", "воскресенье")
-
-    @classmethod
-    def parse(cls, value: str) -> "WeekDay":
-        normalized = value.strip().lower()
-
-        for day in cls:
-            if normalized in day.value:
-                return day
-
-        raise ValueError(f"Неизвестный день недели: {value}")
-
-    @classmethod
-    def parse_many(cls, value: str) -> List["WeekDay"]:
-        return [cls.parse(part) for part in value.split(",")]
-
-
-# -------------------- ОСНОВНОЙ КЛАСС --------------------
 
 class Schedule:
     """
@@ -60,24 +29,25 @@ class Schedule:
         self.db_name = db_name
         self.user = user
 
-    # ---------- СОЗДАНИЕ ----------
-
     def create(
         self,
         pet_id: int,
         procedure_id: int,
         start_date: Optional[str] = None
-    ) -> int:
+    ) -> Optional[int]:
         """
         Создаёт расписание по умолчанию:
-        - Каждые 1 день
+        - Каждый 1 день
+
+        :param pet_id: id питомца
+        :param procedure_id: id процедуры
+        :param start_date: дата начала (необязательно)
         """
         start_date = parse_user_date(start_date) or date.today().isoformat()
 
         with db_connection(self.db_name) as conn:
             cursor = conn.cursor()
 
-            # --- НОВОЕ: проверка на существующее расписание ---
             cursor.execute(
                 """
                 SELECT id
@@ -93,12 +63,12 @@ class Schedule:
             row = cursor.fetchone()
             if row:
                 logger.info(
-                    f"Найдено расписание id={row[0]} (pet_id={pet_id}, procedure_id={procedure_id})",
+                    f"Найдено расписание id={row[0]} (pet_id={pet_id}, "
+                    f"procedure_id={procedure_id})",
                     extra={"user": self.user}
                 )
                 return row[0]
 
-            # --- Старое поведение без изменений ---
             cursor.execute(
                 """
                 INSERT INTO schedule (
@@ -117,13 +87,12 @@ class Schedule:
             schedule_id = cursor.lastrowid
 
         logger.info(
-            f"Создано расписание id={schedule_id} (pet_id={pet_id}, procedure_id={procedure_id})",
+            f"Создано расписание id={schedule_id} (pet_id={pet_id}, "
+            f"procedure_id={procedure_id})",
             extra={"user": self.user}
         )
 
         return schedule_id
-
-    # ---------- ИЗМЕНЕНИЕ РАСПИСАНИЯ ----------
 
     def update_schedule(
         self,
@@ -134,13 +103,16 @@ class Schedule:
         """
         Обновляет расписание:
         - Если исходная запись активна, она деактивируется.
-        - Создаётся новая запись с заданным типом и значением.
-        - Для weekly, monthly, yearly, current_day создаются дочерние записи по правилам.
+        - Всегда создаётся новая запись с заданным типом и значением.
+        - Для weekly, создаются дочерние записи для каждого дня недели.
+
+        :param schedule_id: исходное расписание
+        :param schedule_type_id: id нового типа расписания
+        :param input_value: значение периодичности расписания
         """
         with db_connection(self.db_name) as conn:
             cursor = conn.cursor()
 
-            # Берём исходное расписание
             cursor.execute("""
                 SELECT *
                 FROM schedule
@@ -150,13 +122,16 @@ class Schedule:
 
             if base is None:
                 logger.error(
-                    f"Расписание id={schedule_id} неактивно или не найдено, обновление пропущено",
+                    f"Расписание id={schedule_id} неактивно или не найдено, "
+                    f"обновление пропущено.",
                     extra={"user": self.user}
                 )
                 return
 
             # Деактивируем исходную запись
-            cursor.execute("UPDATE schedule SET active = 0 WHERE id = ?", (schedule_id,))
+            cursor.execute(
+                "UPDATE schedule SET active = 0 WHERE id = ?", (schedule_id,)
+                )
 
             # Базовая структура для нового расписания
             new_base = {
@@ -165,39 +140,41 @@ class Schedule:
                 "start_date": base["start_date"],
             }
 
-            # --- WEEKLY: создаём дочерние записи на дни недели ---
-            if schedule_type_id == 2:
-                self._create_weekly(cursor, new_base, input_value, parent_id=schedule_id)
-
-            # --- MONTHLY ---
-            elif schedule_type_id == 3:
-                self._create_monthly(cursor, new_base, input_value, parent_id=schedule_id)
-
-            # --- YEARLY ---
-            elif schedule_type_id == 4:
-                self._create_yearly(cursor, new_base, input_value, parent_id=schedule_id)
-
-            # --- CURRENT DAY / Конкретный день ---
-            elif schedule_type_id == 5:
-                self._create_current_day(cursor, new_base, input_value, parent_id=schedule_id)
-
-            # --- DAILY / Каждые X дней ---
-            elif schedule_type_id == 1:
-                self._create_each_x_days(cursor, new_base, input_value, parent_id=schedule_id)
-
-            else:
-                raise ValueError("Неизвестный schedule_type_id")
+            match schedule_type_id:
+                case 1:
+                    self._create_each_x_days(
+                        cursor, new_base, input_value, parent_id=schedule_id
+                        )
+                case 2:
+                    self._create_weekly(
+                        cursor, new_base, input_value, parent_id=schedule_id
+                        )
+                case 3:
+                    self._create_monthly(
+                        cursor, new_base, input_value, parent_id=schedule_id
+                        )
+                case 4:
+                    self._create_yearly(
+                        cursor, new_base, input_value, parent_id=schedule_id
+                        )
+                case 5:
+                    self._create_current_day(
+                        cursor, new_base, input_value, parent_id=schedule_id
+                        )
+                case _:
+                    raise ValueError("Неизвестный schedule_type_id")
 
         logger.info(
-            f"Расписание id={schedule_id} обновлено, создано новое дочернее расписание type={schedule_type_id}",
+            f"Расписание id={schedule_id} обновлено, создано новое дочернее "
+            f"расписание type={schedule_type_id}",
             extra={"user": self.user}
         )
-
-    # ---------- ПОЛУЧЕНИЕ ----------
 
     def get_today(self, today: Optional[date] = None) -> List[Dict]:
         """
         Возвращает список процедур, которые должны быть выполнены сегодня.
+
+        :param today: дата прогноза (необязательно)
         """
         if today is None:
             today = date.today()
@@ -234,46 +211,41 @@ class Schedule:
             value = row["value"]
             start_date = date.fromisoformat(row["start_date"])
 
-            # 1. Каждые X дней
-            if schedule_type == 1:
-                delta_days = (today - start_date).days
-                if delta_days % int(value) == 0:
-                    execute_today = True
-
-            # 2. Каждую неделю
-            elif schedule_type == 2:
-                try:
-                    scheduled_weekday = value.upper()
-                    today_weekday = today.strftime("%A").upper()
-                    if scheduled_weekday == today_weekday:
+            match schedule_type:
+                case 1:
+                    delta_days = (today - start_date).days
+                    if delta_days % int(value) == 0:
                         execute_today = True
-                except Exception:
-                    logger.error(
-                        f"Некорректный weekly value: {value}",
-                        extra={"user": self.user}
-                    )
+                case 2:
+                    try:
+                        scheduled_weekday = value.upper()
+                        today_weekday = today.strftime("%A").upper()
+                        if scheduled_weekday == today_weekday:
+                            execute_today = True
+                    except Exception:
+                        logger.error(
+                            f"Некорректный weekly value: {value}",
+                            extra={"user": self.user}
+                        )
+                case 3:
+                    target_day = int(value)
+                    last_day = last_day_of_month(today)
 
-            elif schedule_type == 3:
-                target_day = int(value)
-                last_day = last_day_of_month(today)
-
-                if target_day >= last_day:
-                    # 29–31 → всегда последний день месяца
-                    if day_of_month == last_day:
+                    if target_day >= last_day:
+                        # 29–31 → всегда последний день месяца
+                        if day_of_month == last_day:
+                            execute_today = True
+                    else:
+                        if day_of_month == target_day:
+                            execute_today = True
+                case 4:
+                    if month_day == value:
                         execute_today = True
-                else:
-                    if day_of_month == target_day:
+                case 5:
+                    if value == today_iso:
                         execute_today = True
-
-            # 4. Каждый год
-            elif schedule_type == 4:
-                if month_day == value:
-                    execute_today = True
-                    
-            # 5. Конкретный день
-            elif schedule_type == 5:
-                if value == today_iso:
-                    execute_today = True
+                case _:
+                    continue
 
             if execute_today:
                 result.append({
@@ -281,7 +253,6 @@ class Schedule:
                     "procedure_name": row["procedure_name"],
                     "procedure_description": row["procedure_description"],
                 })
-
 
         logger.info(
             f"Получено процедур на сегодня: {len(result)}",
@@ -294,6 +265,8 @@ class Schedule:
         """
         Возвращает список всех активных расписаний.
         Если указан pet_id, возвращаются только расписания этого питомца.
+
+        :param pet_id: id питомца
         """
         result: List[Dict] = []
 
@@ -336,13 +309,17 @@ class Schedule:
 
         return result
 
-    # ---------- АКТИВАЦИЯ / УДАЛЕНИЕ ----------
-
     def set_active(
         self,
         schedule_ids: Union[int, Iterable[int]],
         active: bool
     ) -> None:
+        """
+        Активирует или деактивирует расписание.
+
+        :param schedule_ids: id расписания
+        :param active: значение активности
+        """
         if isinstance(schedule_ids, int):
             ids = [schedule_ids]
         else:
@@ -370,6 +347,11 @@ class Schedule:
         )
 
     def delete(self, schedule_id: int) -> None:
+        """
+        Удаляет расписание.
+
+        :param schedule_id: id расписания
+        """
         with db_connection(self.db_name) as conn:
             conn.execute("DELETE FROM schedule WHERE id = ?", (schedule_id,))
 
@@ -377,8 +359,6 @@ class Schedule:
             f"Расписание id={schedule_id} удалено",
             extra={"user": self.user}
         )
-
-    # -------------------- ВНУТРЕННИЕ МЕТОДЫ --------------------
 
     def _create_current_day(
         self,
@@ -388,14 +368,18 @@ class Schedule:
         parent_id: int | None = None
     ) -> None:
         """
-        Создаёт расписание на конкретный день.
-        - value: дата в формате YYYY-MM-DD
+        Создаёт одноразовое событие на конкретный день.
+        - value: дата в формате DD.MM.YYYY или YYYY-MM-DD
+
+        :params cursor: место для вставки
+        :params base: данные из родительского расписания для копирования
+        :params value: дата события
+        :params parent_id: id родительского расписания
         """
         try:
-            # Приводим к ISO-формату и проверяем корректность
             day = parse_user_date(value)
             if day is None:
-                raise ValueError("Некорректная дата для одноразового расписания")
+                raise ValueError("Некорректная дата")
 
             cursor.execute("""
                 INSERT INTO schedule (
@@ -417,12 +401,27 @@ class Schedule:
             ))
         except Exception:
             logger.error(
-                f"Не удалось добавить одноразовое расписание: pet_id={base['pet_id']}, "
-                f"procedure_id={base['procedure_id']}, value={value}, parent_id={parent_id}",
+                f"Не удалось добавить одноразовое событие: "
+                f"pet_id={base['pet_id']}, procedure_id={base['procedure_id']}"
+                f", value={value}, parent_id={parent_id}",
                 extra={"user": self.user}
             )
 
-    def _create_each_x_days(self, cursor, base, value: str, parent_id: int | None = None) -> None:
+    def _create_each_x_days(
+            self,
+            cursor,
+            base,
+            value: str,
+            parent_id: int | None = None
+            ) -> None:
+        """
+        Создаёт расписание с периодичностью повторения каждый х день.
+
+        :params cursor: место для вставки
+        :params base: данные из родительского расписания для копирования
+        :params value: количество дней между повторением.
+        :params parent_id: id родительского расписания
+        """
         try:
             cursor.execute("""
                 INSERT INTO schedule (
@@ -444,12 +443,29 @@ class Schedule:
             ))
         except Exception:
             logger.error(
-                f"Не удалось добавить ежедневное расписание: pet_id={base['pet_id']}, "
-                f"procedure_id={base['procedure_id']}, value={value}, parent_id={parent_id}",
+                f"Не удалось добавить ежедневное расписание: "
+                f"pet_id={base['pet_id']}, procedure_id={base['procedure_id']}"
+                f", value={value}, parent_id={parent_id}",
                 extra={"user": self.user}
             )
 
-    def _create_weekly(self, cursor, base, value: str, parent_id: int | None = None) -> None:
+    def _create_weekly(
+            self,
+            cursor,
+            base,
+            value: str,
+            parent_id: int | None = None
+            ) -> None:
+        """
+        Создаёт расписания с периодичностью повторения в конкретные дни недели.
+        Если в value несколько дней недели, то будуи созданы записи для каждого
+        отдельно.
+
+        :params cursor: место для вставки
+        :params base: данные из родительского расписания для копирования
+        :params value: номер дня месяца
+        :params parent_id: id родительского расписания
+        """
         days = WeekDay.parse_many(value)
         for day in days:
             try:
@@ -473,12 +489,28 @@ class Schedule:
                 ))
             except Exception:
                 logger.error(
-                    f"Не удалось добавить недельное расписание: pet_id={base['pet_id']}, "
-                    f"procedure_id={base['procedure_id']}, day={day.name}, parent_id={parent_id}",
+                    f"Не удалось добавить недельное расписание: "
+                    f"pet_id={base['pet_id']}, "
+                    f"procedure_id={base['procedure_id']}, "
+                    f"day={day.name}, parent_id={parent_id}",
                     extra={"user": self.user}
                 )
 
-    def _create_monthly(self, cursor, base, value: str, parent_id: int | None = None) -> None:
+    def _create_monthly(
+            self,
+            cursor,
+            base,
+            value: str,
+            parent_id: int | None = None
+            ) -> None:
+        """
+        Создаёт расписание с периодичностью повторения 1 раз в месяц.
+
+        :params cursor: место для вставки
+        :params base: данные из родительского расписания для копирования
+        :params value: номер дня месяца
+        :params parent_id: id родительского расписания
+        """
         day = int(value)
         if not 1 <= day <= 31:
             raise ValueError("День месяца должен быть от 1 до 31")
@@ -504,12 +536,28 @@ class Schedule:
             ))
         except Exception:
             logger.error(
-                f"Не удалось добавить месячное расписание: pet_id={base['pet_id']}, "
-                f"procedure_id={base['procedure_id']}, day={day}, parent_id={parent_id}",
+                f"Не удалось добавить месячное расписание: "
+                f"pet_id={base['pet_id']}, "
+                f"procedure_id={base['procedure_id']}, "
+                f"day={day}, parent_id={parent_id}",
                 extra={"user": self.user}
             )
 
-    def _create_yearly(self, cursor, base, value: str, parent_id: int | None = None) -> None:
+    def _create_yearly(
+            self,
+            cursor,
+            base,
+            value: str,
+            parent_id: int | None = None
+            ) -> None:
+        """
+        Создаёт расписание с периодичностью повторения 1 раз в год.
+
+        :params cursor: место для вставки
+        :params base: данные из родительского расписания для копирования
+        :params value: дата
+        :params parent_id: id родительского расписания
+        """
         try:
             normalized = normalize_yearly_date(value)
             cursor.execute("""
@@ -532,13 +580,16 @@ class Schedule:
             ))
         except ValueError:
             logger.error(
-                f"Некорректный формат даты для ежегодного расписания: '{value}' "
-                f"(pet_id={base['pet_id']}, procedure_id={base['procedure_id']}, parent_id={parent_id})",
+                f"Некорректный формат даты для ежегодного расписания: "
+                f"'{value}' (pet_id={base['pet_id']}, "
+                f"procedure_id={base['procedure_id']}, parent_id={parent_id})",
                 extra={"user": self.user}
             )
         except Exception:
             logger.error(
-                f"Не удалось добавить ежегодное расписание: pet_id={base['pet_id']}, "
-                f"procedure_id={base['procedure_id']}, value={value}, parent_id={parent_id}",
+                f"Не удалось добавить ежегодное расписание: "
+                f"pet_id={base['pet_id']}, "
+                f"procedure_id={base['procedure_id']}, value={value}, "
+                f"parent_id={parent_id}",
                 extra={"user": self.user}
             )
