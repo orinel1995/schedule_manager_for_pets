@@ -2,9 +2,6 @@ import os
 import sqlite3
 
 from core.logger import get_logger
-from data_access.pet import Pet
-from data_access.procedure import Procedure
-from data_access.schedule import Schedule
 
 
 logger = get_logger()
@@ -144,59 +141,3 @@ def init_database(db_name: str = "project.db", user: str = "admin") -> None:
 
 if __name__ == "__main__":
     init_database()
-
-    session_pet = Pet(user="admin")
-    session_procedure = Procedure(user="admin")
-    session_schedule = Schedule(user="admin")
-
-    zlka = session_pet.create("Злка", "Улиточка", "2026-01-06")
-    yum = session_pet.create("Юум", "Улиточка", "2026-01-06")
-
-    print("\nВсе активные питомцы:")
-    for row in session_pet.get_active():
-        print(row)
-
-    session_pet.update_start_date(zlka, "01.01.2026")
-
-    print("\nВсе активные питомцы (поменялась дата злки):")
-    for row in session_pet.get_active():
-        print(row)
-
-    lubka = session_procedure.create("Великая любовь", "Обнимать и гладить")
-    kormlenie = session_procedure.create("Дать огурец")
-    uborka = session_procedure.create("Почистить террариум")
-
-    print("\nВсе активные процедуры:")
-    for row in session_procedure.get_active():
-        print(row)
-
-    zl = session_schedule.create(zlka, lubka, "01.01.2026")
-    yl = session_schedule.create(yum, lubka, "01.01.2026")
-    zk = session_schedule.create(zlka, kormlenie, "01.01.2026")
-    zk = session_schedule.create(zlka, kormlenie, "01.01.2026")
-    zk = session_schedule.create(zlka, kormlenie, "01.01.2026")
-    yk = session_schedule.create(yum, kormlenie, "01.01.2026")
-
-    zt = session_schedule.create(zlka, uborka)
-    session_schedule.update_schedule(zt, 5, "06.01.2026")
-    yt = session_schedule.create(yum, uborka)
-    session_schedule.update_schedule(yt, 5, "2026-01-06")
-
-    print("\nВсе активные расписания:")
-    for row in session_schedule.get_active():
-        print(row)
-
-    session_schedule.update_schedule(zk, 2, "пн,вторник, Пятница")
-    session_schedule.set_active(yl, False)
-
-    print("\nВсе активные расписания (любка злки теперь 3 раза в неделю, удалено расписание для любки юума):")
-    for row in session_schedule.get_active():
-        print(row)
-
-    print("\nВсе активные расписания на сегодня:")
-    for row in session_schedule.get_today():
-        print(row)
-
-    print("\nВсе активные расписания для Юум:")
-    for row in session_schedule.get_active(2):
-        print(row)
