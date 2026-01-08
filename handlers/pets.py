@@ -64,8 +64,9 @@ async def pet_create_process(message: Message, state: FSMContext):
     await state.update_data(pet_id=pet_id)
     await state.set_state(PetsStates.action_select)
     await message.answer(
-        "Получен питомец:" + "\n" + format_pet(pet),
-        reply_markup=pet_actions_keyboard()
+        "Получен питомец:" + "\n\n" + format_pet(pet),
+        reply_markup=pet_actions_keyboard(),
+        parse_mode='Markdown'
     )
 
 
@@ -85,12 +86,15 @@ async def pet_select_start(message: Message, state: FSMContext):
             )
         return
 
-    text = "Активные питомцы:\n\n"
-    text += "\n".join(f"{p['id']}: {p['name']} ({p['type']})" for p in pets)
-    text += "\n\nНапишите id питомца:"
+    text = "Выберите питомца:\n\n"
+    text += "\n".join(f"🔹 `{p['id']}`: *{p['name']}* (_{p['type']}_)" for p in pets)
+    text += "\n\n👉 Введите id:"
 
     await state.set_state(PetsStates.select_waiting_id)
-    await message.answer(text, reply_markup=pet_deactivate_keyboard())
+    await message.answer(
+        text, 
+        reply_markup=pet_deactivate_keyboard(),
+        parse_mode='Markdown')
 
 
 @router.message(PetsStates.select_waiting_id)
@@ -135,13 +139,6 @@ async def pet_rename_start(message: Message, state: FSMContext):
 async def pet_rename_process(message: Message, state: FSMContext):
     data = await state.get_data()
     pet_id = data.get("pet_id")
-    if pet_id is None:
-        await state.clear()
-        await message.answer(
-            "Контекст действия утерян. Выберите питомца заново.",
-            reply_markup=pets_menu_keyboard(),
-        )
-        return
 
     pet_repo = Pet(user=str(message.from_user.id))
     pet_repo.update_name(pet_id, message.text)
@@ -150,7 +147,8 @@ async def pet_rename_process(message: Message, state: FSMContext):
     await state.set_state(PetsStates.action_select)
     await message.answer(
         "Данные изменены:\n\n" + format_pet(pet),
-        reply_markup=pet_actions_keyboard()
+        reply_markup=pet_actions_keyboard(),
+        parse_mode='Markdown'
     )
 
 
@@ -164,13 +162,6 @@ async def pet_change_type_start(message: Message, state: FSMContext):
 async def pet_change_type_process(message: Message, state: FSMContext):
     data = await state.get_data()
     pet_id = data.get("pet_id")
-    if pet_id is None:
-        await state.clear()
-        await message.answer(
-            "Контекст действия утерян. Выберите питомца заново.",
-            reply_markup=pets_menu_keyboard(),
-        )
-        return
 
     pet_repo = Pet(user=str(message.from_user.id))
     pet_repo.update_type(pet_id, message.text)
@@ -179,7 +170,8 @@ async def pet_change_type_process(message: Message, state: FSMContext):
     await state.set_state(PetsStates.action_select)
     await message.answer(
         "Данные изменены:\n\n" + format_pet(pet),
-        reply_markup=pet_actions_keyboard()
+        reply_markup=pet_actions_keyboard(),
+        parse_mode='Markdown'
     )
 
 
@@ -198,13 +190,6 @@ async def pet_change_date_process(message: Message, state: FSMContext):
 
     data = await state.get_data()
     pet_id = data.get("pet_id")
-    if pet_id is None:
-        await state.clear()
-        await message.answer(
-            "Контекст действия утерян. Выберите питомца заново.",
-            reply_markup=pets_menu_keyboard(),
-        )
-        return
 
     pet_repo = Pet(user=str(message.from_user.id))
     pet_repo.update_start_date(pet_id, parsed)
@@ -213,7 +198,8 @@ async def pet_change_date_process(message: Message, state: FSMContext):
     await state.set_state(PetsStates.action_select)
     await message.answer(
         "Данные изменены:\n\n" + format_pet(pet),
-        reply_markup=pet_actions_keyboard()
+        reply_markup=pet_actions_keyboard(),
+        parse_mode='Markdown'
     )
 
 
@@ -223,13 +209,6 @@ async def pet_change_date_process(message: Message, state: FSMContext):
 async def pet_deactivate_confirm(message: Message, state: FSMContext):
     data = await state.get_data()
     pet_id = data.get("pet_id")
-    if pet_id is None:
-        await state.clear()
-        await message.answer(
-            "Контекст действия утерян. Выберите питомца заново.",
-            reply_markup=pets_menu_keyboard(),
-        )
-        return
 
     pet_repo = Pet(user=str(message.from_user.id))
     pet = pet_repo.get_by_id(pet_id)
@@ -237,10 +216,11 @@ async def pet_deactivate_confirm(message: Message, state: FSMContext):
     await state.set_state(PetsStates.deactivate_confirm)
 
     await message.answer(
-        "Вы уверены, что хотите деактивировать питомца?\n\n"
+        "Вы уверены, что хотите деактивировать этого питомца?\n\n"
         + format_pet(pet)
-        + "\n\nДля продолжения введите его id:",
-        reply_markup=pet_deactivate_keyboard()
+        + "\n\n👉 Введите id еще раз:",
+        reply_markup=pet_deactivate_keyboard(),
+        parse_mode='Markdown'
     )
 
 
@@ -248,13 +228,6 @@ async def pet_deactivate_confirm(message: Message, state: FSMContext):
 async def pet_deactivate_process(message: Message, state: FSMContext):
     data = await state.get_data()
     pet_id = data.get("pet_id")
-    if pet_id is None:
-        await state.clear()
-        await message.answer(
-            "Контекст действия утерян. Выберите питомца заново.",
-            reply_markup=pets_menu_keyboard(),
-        )
-        return
 
     if message.text == "❌ Отмена" or message.text != str(pet_id):
         await state.set_state(PetsStates.action_select)
@@ -267,9 +240,9 @@ async def pet_deactivate_process(message: Message, state: FSMContext):
     pet_repo = Pet(user=str(message.from_user.id))
     pet_repo.update_active(pet_id, False)
 
-    pet = pet_repo.get_by_id(pet_id)
     await state.set_state(PetsStates.action_select)
     await message.answer(
-        "Питомец деактивирован:\n\n" + format_pet(pet),
-        reply_markup=pet_actions_keyboard()
+        "Питомец деактивирован.",
+        reply_markup=pets_menu_keyboard(),
+        parse_mode='Markdown'
     )

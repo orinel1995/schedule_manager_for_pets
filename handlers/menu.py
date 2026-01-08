@@ -26,7 +26,7 @@ async def start_handler(message: Message) -> None:
     """
     await message.answer(
         "Добро пожаловать домой, снова.\n\n"
-        "Выберите команду через кнопку меню."
+        "↙️ Выберите команду через кнопку меню ."
     )
 
 
@@ -70,7 +70,8 @@ async def schedules_menu_entry(message: Message, state: FSMContext) -> None:
 
 
 @router.message(Command("today_tasks"))
-async def today_tasks_handler(message: Message):
+async def today_tasks_handler(message: Message, state: FSMContext):
+    await state.clear()
     user_id = str(message.from_user.id)
 
     schedule_repo = Schedule(user=user_id)

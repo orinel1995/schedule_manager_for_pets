@@ -55,6 +55,7 @@ async def procedure_create_finish(message: Message, state: FSMContext):
     await message.answer(
         format_procedure(procedure),
         reply_markup=procedure_actions_keyboard(),
+        parse_mode='Markdown'
     )
 
 
@@ -73,18 +74,19 @@ async def procedure_select(message: Message, state: FSMContext):
 
     procedures.sort(key=lambda p: p["id"])
 
-    text = "Активные процедуры:\n\n"
+    text = "Выберите процедуру:\n\n"
     text += "\n".join(
-        f"{p['id']}: {p['name']}"
-        + (f" ({p['description']})" if p.get("description") else "")
+        f"🔹 `{p['id']}`: *{p['name']}*"
+        + (f" (_{p['description']}_)" if p.get("description") else "")
         for p in procedures
     )
-    text += "\n\nНапишите id процедуры:"
+    text += "\n\n👉 Введите id:"
 
     await state.set_state(ProcedureStates.waiting_for_id)
     await message.answer(
         text,
         reply_markup=procedure_cancel_keyboard(),
+        parse_mode='Markdown'
     )
 
 
@@ -117,6 +119,7 @@ async def procedure_open(message: Message, state: FSMContext):
     await message.answer(
         format_procedure(procedure),
         reply_markup=procedure_actions_keyboard(),
+        parse_mode='Markdown'
     )
 
 
@@ -155,6 +158,7 @@ async def procedure_edit_description_finish(message: Message, state: FSMContext)
     await message.answer(
         format_procedure(procedure),
         reply_markup=procedure_actions_keyboard(),
+        parse_mode='Markdown'
     )
 
 
@@ -169,10 +173,11 @@ async def procedure_deactivate_confirm(message: Message, state: FSMContext):
     await state.set_state(ProcedureStates.deactivate_confirm)
 
     await message.answer(
-        "Вы уверены, что хотите деактивировать процедуру?\n\n"
+        "Вы уверены, что хотите деактивировать эту процедуру?\n\n"
         + format_procedure(procedure)
-        + "\n\nДля продолжения введите её id:",
+        + "\n\n👉 Введите id еще раз:",
         reply_markup=procedure_cancel_keyboard(),
+        parse_mode='Markdown'
     )
 
 
@@ -192,10 +197,10 @@ async def procedure_deactivate_process(message: Message, state: FSMContext):
     procedure_repo = Procedure(user=str(message.from_user.id))
     procedure_repo.update_active(procedure_id, False)
 
-    procedure = procedure_repo.get_by_id(procedure_id)
     await state.set_state(ProcedureStates.action_select)
 
     await message.answer(
-        "Процедура деактивирована:\n\n" + format_procedure(procedure),
+        "Процедура деактивирована.",
         reply_markup=procedures_menu_keyboard(),
+        parse_mode='Markdown'
     )

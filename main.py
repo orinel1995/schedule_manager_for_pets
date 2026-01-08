@@ -16,9 +16,9 @@ async def main() -> None:
     init_database()
     bot, dp = create_bot_and_dispatcher()
     await bot.set_my_commands([
-        BotCommand(command="pets", description="🐾 Управление питомцами"),
-        BotCommand(command="procedures", description="🧪 Управление процедурами"),
-        BotCommand(command="schedules", description="📅 Управление расписаниями"),
+        BotCommand(command="pets", description="🐾 Питомцы"),
+        BotCommand(command="procedures", description="🧪 Процедуры"),
+        BotCommand(command="schedules", description="📅 Расписания"),
         BotCommand(command="today_tasks", description="📋 Задания на сегодня"),
     ])
 

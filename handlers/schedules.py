@@ -50,13 +50,14 @@ async def schedule_create_start(message: Message, state: FSMContext):
         return
 
     text = "Выберите питомца:\n\n"
-    text += "\n".join(f"{p['id']}: {p['name']}" for p in pets)
-    text += "\n\nВведите id:"
+    text += "\n".join(f"🔹 `{p['id']}`: *{p['name']}* (_{p['type']}_)" for p in pets)
+    text += "\n\n👉 Введите id:"
 
     await state.set_state(SchedulesStates.waiting_for_pet_id)
     await message.answer(
         text,
         reply_markup=schedule_cancel_keyboard(),
+        parse_mode='Markdown'
     )
 
 
@@ -98,16 +99,17 @@ async def schedule_create_pet_selected(message: Message, state: FSMContext):
 
     text = "Выберите процедуру:\n\n"
     text += "\n".join(
-        f"{p['id']}: {p['name']}"
-        + (f" ({p['description']})" if p.get("description") else "")
+        f"🔹 `{p['id']}`: *{p['name']}*"
+        + (f" (_{p['description']}_)" if p.get("description") else "")
         for p in procedures
     )
-    text += "\n\nВведите id:"
+    text += "\n\n👉 Введите id:"
 
     await state.set_state(SchedulesStates.waiting_for_procedure_id)
     await message.answer(
         text,
         reply_markup=schedule_cancel_keyboard(),
+        parse_mode='Markdown'
     )
 
 
@@ -151,6 +153,7 @@ async def schedule_create_finish(message: Message, state: FSMContext):
     await message.answer(
         "Получено расписание:\n\n" + format_schedule(schedule),
         reply_markup=schedule_actions_keyboard(),
+        parse_mode='Markdown'
     )
 
 
@@ -171,8 +174,11 @@ async def schedule_select_start(message: Message, state: FSMContext):
 
     await state.set_state(SchedulesStates.waiting_for_schedule_id)
     await message.answer(
-        format_schedules_grouped(schedules) + "\n\nВведите id расписания:",
+        "Выберите расписание:\n"
+        + format_schedules_grouped(schedules)
+        + "\n\n👉 Введите id:",
         reply_markup=schedule_cancel_keyboard(),
+        parse_mode="Markdown"
     )
 
 
@@ -205,6 +211,7 @@ async def schedule_selected(message: Message, state: FSMContext):
     await message.answer(
         format_schedule(schedule),
         reply_markup=schedule_actions_keyboard(),
+        parse_mode="Markdown"
     )
 
 
@@ -221,7 +228,7 @@ async def schedule_edit_start(message: Message, state: FSMContext):
 
 @router.message(SchedulesStates.waiting_for_schedule_type)
 async def schedule_type_selected(message: Message, state: FSMContext):
-    mapping = {
+    mapping_ids = {
         "Каждые Х дней": 1,
         "Каждую неделю": 2,
         "Каждый месяц": 3,
@@ -229,23 +236,33 @@ async def schedule_type_selected(message: Message, state: FSMContext):
         "Конкретный день": 5,
     }
 
+    mapping_reply = {
+        "Каждые Х дней": "Введите число дней между повторениями, например `2`:",
+        "Каждую неделю": "Перечислите дни недели через запятую, например `пн, ср, пт`:",
+        "Каждый месяц": "Укажите день месяца, например `31`:",
+        "Каждый год": "Укажите дату, например `23.05.2000`:",
+        "Конкретный день": "Укажите дату, например `23.05.2000`:"
+    }
+
     if message.text == "❌ Отмена":
         await state.set_state(SchedulesStates.edit_select)
         await message.answer(
             "Действие отменено.",
             reply_markup=schedule_actions_keyboard(),
+            parse_mode="Markdown"
         )
         return
 
-    if message.text not in mapping:
+    if message.text not in mapping_ids:
         return
 
-    await state.update_data(schedule_type_id=mapping[message.text])
+    await state.update_data(schedule_type_id=mapping_ids[message.text])
     await state.set_state(SchedulesStates.waiting_for_schedule_value)
 
     await message.answer(
-        "Введите значение для выбранного типа:",
+        mapping_reply[message.text],
         reply_markup=schedule_cancel_keyboard(),
+        parse_mode="Markdown"
     )
 
 
@@ -291,8 +308,9 @@ async def schedule_deactivate_confirm(message: Message, state: FSMContext):
     await message.answer(
         "Вы уверены, что хотите деактивировать расписание?\n\n"
         + format_schedule(schedule)
-        + "\n\nДля продолжения введите его id:",
+        + "\n\n👉 Для продолжения введите его id:",
         reply_markup=schedule_cancel_keyboard(),
+        parse_mode="Markdown"
     )
 
 
@@ -312,9 +330,9 @@ async def schedule_deactivate_process(message: Message, state: FSMContext):
     schedule_repo = Schedule(user=str(message.from_user.id))
     schedule_repo.set_active(schedule_id, False)
 
-    schedule = schedule_repo.get_by_id(schedule_id)
     await state.set_state(SchedulesStates.action_select)
     await message.answer(
-        "Расписание деактивировано:\n\n" + format_schedule(schedule),
+        "Расписание деактивировано.",
         reply_markup=schedules_menu_keyboard(),
+        parse_mode="Markdown"
     )

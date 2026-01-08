@@ -15,50 +15,26 @@ def format_pet(pet: Dict) -> str:
     Форматирует данные питомца для вывода пользователю.
     """
     return (
-        f"Питомец {pet['name']}:\n"
-        f"Тип: {pet['type']}\n"
+        f"🐾 *{pet['name']}* _({pet['type']})_\n"
+        f"────────────────────\n"
         f"День рождения: {_format_full_date(pet['start_date'])}\n"
         f"Статус: {active_to_text(pet['active'])}\n"
-        f"id: {pet['id']}"
+        f"id: `{pet['id']}`"
     )
-
-
-def format_pet_created(pet: Dict) -> str:
-    """
-    Сообщение после создания питомца.
-    """
-    return (
-        f"Получен питомец {pet['id']}: "
-        f"{pet['name']} {pet['type']}, "
-        f"статус {active_to_text(pet['active'])}"
-    )
-
-
-def format_pet_list(pets: List[Dict]) -> str:
-    """
-    Форматирует список питомцев вида:
-    id: name
-    """
-    if not pets:
-        return "Активных питомцев нет."
-
-    lines = []
-    pets_sorted = sorted(pets, key=lambda x: x['id'])
-    for pet in pets_sorted:
-        lines.append(f"{pet['id']}: {pet['name']}")
-
-    return "Активные питомцы:\n\n" + "\n".join(lines)
 
 
 def format_procedure(procedure: Dict) -> str:
     """
     Форматирует данные процедур для вывода пользователю.
     """
+    description = procedure['description'] or "Нет описания"
+
     return (
-        f"Процедура {procedure['name']}:\n"
-        f"Описание: {procedure['description']}\n"
+        f"🧪 *{procedure['name']}*\n"
+        f"────────────────────\n"
+        f"Описание: {description}\n"
         f"Статус: {active_to_text(procedure['active'])}\n"
-        f"id: {procedure['id']}"
+        f"id: `{procedure['id']}`"
     )
 
 
@@ -120,12 +96,19 @@ def format_schedule_period(schedule: dict) -> str:
 
 
 def format_schedule(schedule: dict) -> str:
+    procedure_description = schedule.get('procedure_description')
+    if procedure_description:
+        description = f"(_{procedure_description}_)"
+    else:
+        description = ""
+
     return (
-        f"Питомец: {schedule['pet_name']}\n"
-        f"Процедура: {schedule['procedure_name']}\n"
+        f"🐾 *{schedule['pet_name']}*\n"
+        f"🧪 *{schedule['procedure_name']}* {description}\n"
+        f"────────────────────\n"
         f"Периодичность: {format_schedule_period(schedule)}\n"
-        f"Статус: {active_to_text(schedule['active'])}\n"
         f"Дата начала: {_format_full_date(schedule['start_date'])}\n"
+        f"Статус: {active_to_text(schedule['active'])}\n"
         f"id: {schedule['id']}"
     )
 
@@ -143,39 +126,17 @@ def format_schedules_grouped(schedules: list[dict]) -> str:
     lines: list[str] = []
 
     for pet_name, pet_schedules in grouped.items():
-        lines.append(f"Питомец {pet_name}:")
+        pet_type = pet_schedules[0].get("pet_type", "???")
+
+        lines.append(f"🐾 *{pet_name}* _({pet_type})_")
+        lines.append("────────────────────")
 
         for s in pet_schedules:
             lines.append(
-                f"  {s['id']}: {s['procedure_name']} - "
-                f"{format_schedule_period(s)}"
+                f"🔹 `{s['id']}`: "
+                f"{s['procedure_name']} — _{format_schedule_period(s)}_"
             )
 
         lines.append("")  # пустая строка между питомцами
-
-    return "\n".join(lines).strip()
-
-
-def format_today_tasks(items: list[dict]) -> str:
-    if not items:
-        return "На сегодня заданий нет."
-
-    result: dict[str, list[dict]] = {}
-
-    for item in items:
-        result.setdefault(item["pet_name"], []).append(item)
-
-    lines: list[str] = []
-
-    for pet_name, tasks in result.items():
-        lines.append(f"Питомец {pet_name}:")
-
-        for task in tasks:
-            line = f"    {task['procedure_name']}"
-            if task.get("procedure_description"):
-                line += f": {task['procedure_description']}"
-            lines.append(line)
-
-        lines.append("")
 
     return "\n".join(lines).strip()
