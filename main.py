@@ -3,6 +3,7 @@ import asyncio
 from core.db import init_database
 from core.logger import get_logger
 from bot import create_bot_and_dispatcher
+from aiogram.types import BotCommand, MenuButtonCommands
 
 
 logger = get_logger()
@@ -14,7 +15,17 @@ async def main() -> None:
     """
     init_database()
     bot, dp = create_bot_and_dispatcher()
+    await bot.set_my_commands([
+        BotCommand(command="menu", description="🏠 Главное меню"),
+        BotCommand(command="🐾 Управление питомцами", description="🐾 Управление питомцами"),
+        BotCommand(command="🧪 Управление процедурами", description="🧪 Управление процедурами"),
+        BotCommand(command="📅 Управление расписаниями", description="📅 Управление расписаниями"),
+        BotCommand(command="📋 Задания на сегодня", description="📋 Задания на сегодня"),
+    ])
 
+    await bot.set_chat_menu_button(
+        menu_button=MenuButtonCommands()
+    )
     logger.info("Telegram-бот запущен", extra={"user": "system"})
 
     try:

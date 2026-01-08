@@ -7,7 +7,7 @@
 from typing import Optional, Dict, List
 from datetime import date
 
-from core.db import db_connection
+from core.db import db_connection, DB_NAME, USER_NAME
 from core.logger import get_logger
 from core.dates import parse_user_date
 
@@ -19,7 +19,7 @@ class Pet:
     Методы для работы с таблицей pet.
     """
 
-    def __init__(self, db_name: str = "project.db", user: str = "system"):
+    def __init__(self, db_name: str = DB_NAME, user: str = USER_NAME):
         """
         :param db_name: имя файла базы данных SQLite
         :param user: пользователь, от имени которого выполняются операции

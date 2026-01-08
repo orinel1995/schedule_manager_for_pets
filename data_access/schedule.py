@@ -9,7 +9,7 @@ from datetime import date
 from typing import List, Dict, Optional, Union, Iterable
 
 from core.logger import get_logger
-from core.db import db_connection
+from core.db import db_connection, DB_NAME, USER_NAME
 from core.dates import (
     parse_user_date,
     normalize_yearly_date,
@@ -25,7 +25,7 @@ class Schedule:
     Класс для работы с пользовательскими расписаниями процедур.
     """
 
-    def __init__(self, db_name: str = "project.db", user: str = "admin"):
+    def __init__(self, db_name: str = DB_NAME, user: str = USER_NAME):
         self.db_name = db_name
         self.user = user
 
@@ -192,7 +192,9 @@ class Schedule:
                     s.value,
                     s.start_date,
                     p.name AS pet_name,
+                    p.id AS pet_id,
                     pr.name AS procedure_name,
+                    pr.id AS procedure_id,
                     pr.description AS procedure_description
                 FROM schedule s
                 JOIN pet p ON p.id = s.pet_id
@@ -249,7 +251,9 @@ class Schedule:
 
             if execute_today:
                 result.append({
+                    "pet_id": row["pet_id"],
                     "pet_name": row["pet_name"],
+                    "procedure_id": row["procedure_id"],
                     "procedure_name": row["procedure_name"],
                     "procedure_description": row["procedure_description"],
                 })
@@ -279,6 +283,7 @@ class Schedule:
                     pr.name AS procedure_name,
                     s.schedule_type_id,
                     s.value,
+                    s.start_date,
                     s.active
                 FROM schedule s
                 JOIN pet p ON p.id = s.pet_id
@@ -299,6 +304,7 @@ class Schedule:
             "procedure_name": row["procedure_name"],
             "schedule_type_id": row["schedule_type_id"],
             "value": row["value"],
+            "start_date": row["start_date"],
             "active": bool(row["active"]),
         }
 

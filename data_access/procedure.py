@@ -8,7 +8,7 @@
 from typing import Optional, Dict, List
 
 from core.logger import get_logger
-from core.db import db_connection
+from core.db import db_connection, DB_NAME, USER_NAME
 
 
 logger = get_logger()
@@ -17,7 +17,7 @@ logger = get_logger()
 class Procedure:
     """Методы для работы с таблицей procedure."""
 
-    def __init__(self, db_name: str = "project.db", user: str = "admin"):
+    def __init__(self, db_name: str = DB_NAME, user: str = USER_NAME):
         """
         :param db_name: имя файла базы данных SQLite
         :param user: пользователь, от имени которого выполняются операции

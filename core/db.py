@@ -14,13 +14,16 @@ from typing import Iterator
 
 from core.logger import get_logger
 
+DB_NAME = "project.db"
+USER_NAME = "system"
+
 logger = get_logger()
 
 
 # ---------- Контекст подключения ----------
 
 @contextmanager
-def db_connection(db_name: str) -> Iterator[sqlite3.Connection]:
+def db_connection(db_name: str = DB_NAME) -> Iterator[sqlite3.Connection]:
     """
     Контекстный менеджер для работы с SQLite.
 
@@ -98,6 +101,21 @@ def _create_tables(conn: sqlite3.Connection) -> None:
         WHERE active = 1;
     """)
 
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS checklist (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        date TEXT NOT NULL,
+        pet_id INTEGER NOT NULL,
+        procedure_id INTEGER NOT NULL,
+        status INTEGER NOT NULL CHECK (status IN (0, 1)) DEFAULT 0,
+
+        FOREIGN KEY (pet_id) REFERENCES pet(id),
+        FOREIGN KEY (procedure_id) REFERENCES procedure(id),
+
+        UNIQUE (date, pet_id, procedure_id)
+    );
+    """)
+
 
 def _init_schedule_types(conn: sqlite3.Connection) -> None:
     cursor = conn.cursor()
@@ -129,7 +147,7 @@ def _init_schedule_types(conn: sqlite3.Connection) -> None:
     )
 
 
-def init_database(db_name: str = "project.db", user: str = "system") -> None:
+def init_database(db_name: str = DB_NAME, user: str = USER_NAME) -> None:
     """
     Полная инициализация БД
     """

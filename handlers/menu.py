@@ -9,6 +9,9 @@ from states.procedures import ProcedureStates
 from keyboards.procedures import procedures_menu_keyboard
 from states.schedules import SchedulesStates
 from keyboards.schedules import schedules_menu_keyboard
+from keyboards.checklists import today_checklist_keyboard
+from data_access.schedule import Schedule
+from data_access.checklist import Checklist
 
 router = Router()
 
@@ -94,9 +97,55 @@ async def schedules_menu_entry(message: Message, state: FSMContext) -> None:
         reply_markup=schedules_menu_keyboard()
     )
 
-# --- Заглушки под будущие разделы (чтобы не было 'Update not handled') ---
-
 
 @router.message(F.text == "📋 Задания на сегодня")
-async def today_stub(message: Message) -> None:
-    await message.answer("Раздел «Задания на сегодня» в разработке.")
+async def today_tasks_handler(message: Message):
+    user_id = str(message.from_user.id)
+
+    schedule_repo = Schedule(user=user_id)
+    checklist_repo = Checklist(user=user_id)
+
+    # 1. Получаем расписания на сегодня
+    today_schedules = schedule_repo.get_today()
+
+    if not today_schedules:
+        await message.answer(
+            "На сегодня заданий нет 🙂",
+            reply_markup=main_menu_keyboard()
+        )
+        return
+
+    # 2. Инициализируем чеклист (без перезаписи существующих)
+    checklist_repo.ensure_today_tasks(today_schedules)
+
+    # 3. Получаем чеклист со статусами
+    checklist = checklist_repo.get_today()
+
+    # 4. Отправляем inline-чеклист
+    await message.answer(
+        "Задания на сегодня:",
+        reply_markup=today_checklist_keyboard(checklist),
+    )
+
+
+@router.callback_query(F.data.startswith("checklist_toggle:"))
+async def checklist_toggle_handler(callback, state):
+    checklist_id = int(callback.data.split(":")[1])
+    user_id = str(callback.from_user.id)
+
+    checklist_repo = Checklist(user=user_id)
+
+    items = checklist_repo.get_today()
+    item = next(i for i in items if i["id"] == checklist_id)
+
+    # инвертируем статус
+    checklist_repo.set_status(checklist_id, not item["status"])
+
+    # обновляем клавиатуру
+    updated_items = checklist_repo.get_today()
+
+    await callback.message.edit_reply_markup(
+        reply_markup=today_checklist_keyboard(updated_items)
+    )
+
+    await callback.answer()

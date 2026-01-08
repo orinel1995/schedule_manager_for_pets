@@ -17,7 +17,7 @@ def format_pet(pet: Dict) -> str:
     return (
         f"Питомец {pet['name']}:\n"
         f"Тип: {pet['type']}\n"
-        f"День рождения: {pet['start_date']}\n"
+        f"День рождения: {_format_full_date(pet['start_date'])}\n"
         f"Статус: {active_to_text(pet['active'])}\n"
         f"id: {pet['id']}"
     )
@@ -114,7 +114,7 @@ def format_schedule_period(schedule: dict) -> str:
         return f"каждый год {_format_year_date(value)}"
 
     if schedule_type == 5:
-        return f"единоразово {_format_full_date(value)}"
+        return f"{_format_full_date(value)}"
 
     return "неизвестная периодичность"
 
@@ -125,6 +125,7 @@ def format_schedule(schedule: dict) -> str:
         f"Процедура: {schedule['procedure_name']}\n"
         f"Периодичность: {format_schedule_period(schedule)}\n"
         f"Статус: {active_to_text(schedule['active'])}\n"
+        f"Дата начала: {_format_full_date(schedule['start_date'])}\n"
         f"id: {schedule['id']}"
     )
 
@@ -151,5 +152,30 @@ def format_schedules_grouped(schedules: list[dict]) -> str:
             )
 
         lines.append("")  # пустая строка между питомцами
+
+    return "\n".join(lines).strip()
+
+
+def format_today_tasks(items: list[dict]) -> str:
+    if not items:
+        return "На сегодня заданий нет."
+
+    result: dict[str, list[dict]] = {}
+
+    for item in items:
+        result.setdefault(item["pet_name"], []).append(item)
+
+    lines: list[str] = []
+
+    for pet_name, tasks in result.items():
+        lines.append(f"Питомец {pet_name}:")
+
+        for task in tasks:
+            line = f"    {task['procedure_name']}"
+            if task.get("procedure_description"):
+                line += f": {task['procedure_description']}"
+            lines.append(line)
+
+        lines.append("")
 
     return "\n".join(lines).strip()

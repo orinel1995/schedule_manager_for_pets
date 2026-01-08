@@ -14,6 +14,7 @@ from core.dates import parse_user_date
 from utils.formatters import format_pet
 
 router = Router()
+CONTEXT_ERROR_TEXT = "Контекст действия утерян. Начните заново."
 
 # ---------- /pets ----------
 
@@ -60,6 +61,7 @@ async def pet_create_process(message: Message, state: FSMContext):
     pet_id = pet_repo.create(name, pet_type)
     pet = pet_repo.get_by_id(pet_id)
 
+    await state.update_data(pet_id=pet_id)
     await state.set_state(PetsStates.action_select)
     await message.answer(
         f"Получен питомец:" + "\n" + format_pet(pet),
@@ -133,7 +135,14 @@ async def pet_rename_start(message: Message, state: FSMContext):
 @router.message(PetsStates.rename_waiting)
 async def pet_rename_process(message: Message, state: FSMContext):
     data = await state.get_data()
-    pet_id = data["pet_id"]
+    pet_id = data.get("pet_id")
+    if pet_id is None:
+        await state.clear()
+        await message.answer(
+            "Контекст действия утерян. Выберите питомца заново.",
+            reply_markup=pets_menu_keyboard(),
+        )
+        return
 
     pet_repo = Pet(user=str(message.from_user.id))
     pet_repo.update_name(pet_id, message.text)
@@ -156,7 +165,14 @@ async def pet_change_type_start(message: Message, state: FSMContext):
 @router.message(PetsStates.type_waiting)
 async def pet_change_type_process(message: Message, state: FSMContext):
     data = await state.get_data()
-    pet_id = data["pet_id"]
+    pet_id = data.get("pet_id")
+    if pet_id is None:
+        await state.clear()
+        await message.answer(
+            "Контекст действия утерян. Выберите питомца заново.",
+            reply_markup=pets_menu_keyboard(),
+        )
+        return
 
     pet_repo = Pet(user=str(message.from_user.id))
     pet_repo.update_type(pet_id, message.text)
@@ -184,7 +200,14 @@ async def pet_change_date_process(message: Message, state: FSMContext):
         return
 
     data = await state.get_data()
-    pet_id = data["pet_id"]
+    pet_id = data.get("pet_id")
+    if pet_id is None:
+        await state.clear()
+        await message.answer(
+            "Контекст действия утерян. Выберите питомца заново.",
+            reply_markup=pets_menu_keyboard(),
+        )
+        return
 
     pet_repo = Pet(user=str(message.from_user.id))
     pet_repo.update_start_date(pet_id, parsed)
@@ -203,7 +226,14 @@ async def pet_change_date_process(message: Message, state: FSMContext):
 @router.message(PetsStates.action_select, F.text == "⛔ Деактивировать")
 async def pet_deactivate_confirm(message: Message, state: FSMContext):
     data = await state.get_data()
-    pet_id = data["pet_id"]
+    pet_id = data.get("pet_id")
+    if pet_id is None:
+        await state.clear()
+        await message.answer(
+            "Контекст действия утерян. Выберите питомца заново.",
+            reply_markup=pets_menu_keyboard(),
+        )
+        return
 
     pet_repo = Pet(user=str(message.from_user.id))
     pet = pet_repo.get_by_id(pet_id)
@@ -221,7 +251,14 @@ async def pet_deactivate_confirm(message: Message, state: FSMContext):
 @router.message(PetsStates.deactivate_confirm)
 async def pet_deactivate_process(message: Message, state: FSMContext):
     data = await state.get_data()
-    pet_id = data["pet_id"]
+    pet_id = data.get("pet_id")
+    if pet_id is None:
+        await state.clear()
+        await message.answer(
+            "Контекст действия утерян. Выберите питомца заново.",
+            reply_markup=pets_menu_keyboard(),
+        )
+        return
 
     if message.text == "❌ Отмена" or message.text != str(pet_id):
         await state.clear()
