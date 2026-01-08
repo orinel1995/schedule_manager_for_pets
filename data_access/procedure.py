@@ -106,7 +106,7 @@ class Procedure:
     def update_description(
         self,
         procedure_id: int,
-        description: Optional[str]
+        description: Optional[str] = None
     ) -> None:
         """
         Обновляет описание процедуры.

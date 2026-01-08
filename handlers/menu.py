@@ -5,6 +5,9 @@ from aiogram.fsm.context import FSMContext
 
 from states.pets import PetsStates
 from keyboards.pets import pets_menu_keyboard
+from states.procedures import ProcedureStates
+from keyboards.procedures import procedures_menu_keyboard
+
 
 router = Router()
 
@@ -65,11 +68,19 @@ async def back_to_main_menu(message: Message, state: FSMContext) -> None:
     await menu_handler(message)
 
 
-# --- Заглушки под будущие разделы (чтобы не было 'Update not handled') ---
-
 @router.message(F.text == "🧪 Управление процедурами")
-async def procedures_stub(message: Message) -> None:
-    await message.answer("Раздел «Процедуры» в разработке.")
+async def procedures_menu_entry(message: Message, state: FSMContext) -> None:
+    """
+    Переход в меню управления процедурами.
+    """
+    await state.set_state(ProcedureStates.action_select)
+
+    await message.answer(
+        "Выберите действие:",
+        reply_markup=procedures_menu_keyboard()
+    )
+
+# --- Заглушки под будущие разделы (чтобы не было 'Update not handled') ---
 
 
 @router.message(F.text == "📅 Управление расписаниями")

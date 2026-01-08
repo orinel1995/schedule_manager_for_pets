@@ -11,15 +11,6 @@ def active_to_text(active: bool) -> str:
 def format_pet(pet: Dict) -> str:
     """
     Форматирует данные питомца для вывода пользователю.
-
-    Ожидаемый формат pet:
-    {
-        "id": int,
-        "name": str,
-        "type": str,
-        "start_date": str,
-        "active": bool
-    }
     """
     return (
         f"Питомец {pet['name']}:\n"
@@ -55,3 +46,15 @@ def format_pet_list(pets: List[Dict]) -> str:
         lines.append(f"{pet['id']}: {pet['name']}")
 
     return "Активные питомцы:\n\n" + "\n".join(lines)
+
+
+def format_procedure(procedure: Dict) -> str:
+    """
+    Форматирует данные процедур для вывода пользователю.
+    """
+    return (
+        f"Процедура {procedure['name']}:\n"
+        f"Описание: {procedure['description']}\n"
+        f"Статус: {active_to_text(procedure['active'])}\n"
+        f"id: {procedure['id']}"
+    )

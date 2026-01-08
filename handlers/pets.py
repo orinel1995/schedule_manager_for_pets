@@ -11,7 +11,7 @@ from keyboards.pets import (
     cancel_keyboard,
 )
 from core.dates import parse_user_date
-from utils.formatters import active_to_text, format_pet
+from utils.formatters import format_pet
 
 router = Router()
 
@@ -43,7 +43,7 @@ async def pet_create_process(message: Message, state: FSMContext):
         await state.clear()
         await message.answer(
             "Действие отменено.",
-            reply_markup=cancel_keyboard()
+            reply_markup=pets_menu_keyboard()
             )
         return
 
@@ -78,7 +78,10 @@ async def pet_select_start(message: Message, state: FSMContext):
     pets.sort(key=lambda x: x["id"])
 
     if not pets:
-        await message.answer("Активных питомцев нет.")
+        await message.answer(
+            "Активных питомцев нет.",
+            reply_markup=pets_menu_keyboard()
+            )
         return
 
     text = "Активные питомцы:\n\n"
@@ -86,14 +89,17 @@ async def pet_select_start(message: Message, state: FSMContext):
     text += "\n\nНапишите id питомца:"
 
     await state.set_state(PetsStates.select_waiting_id)
-    await message.answer(text, reply_markup=cancel_keyboard())
+    await message.answer(text, reply_markup=pet_deactivate_keyboard())
 
 
 @router.message(PetsStates.select_waiting_id)
 async def pet_select_process(message: Message, state: FSMContext):
     if message.text == "❌ Отмена":
         await state.clear()
-        await message.answer("Действие отменено.")
+        await message.answer(
+            "Действие отменено.",
+            reply_markup=pets_menu_keyboard()
+            )
         return
 
     if not message.text.isdigit():
@@ -220,7 +226,10 @@ async def pet_deactivate_process(message: Message, state: FSMContext):
 
     if message.text == "❌ Отмена" or message.text != str(pet_id):
         await state.clear()
-        await message.answer("Действие отменено.")
+        await message.answer(
+            "Деактивация отменена.",
+            reply_markup=cancel_keyboard(),
+            )
         return
 
     pet_repo = Pet(user=str(message.from_user.id))
