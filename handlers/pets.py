@@ -82,7 +82,7 @@ async def pet_select_start(message: Message, state: FSMContext):
         return
 
     text = "Активные питомцы:\n\n"
-    text += "\n".join(f"{p['id']}: {p['name']}" for p in pets)
+    text += "\n".join(f"{p['id']}: {p['name']} ({p['type']})" for p in pets)
     text += "\n\nНапишите id питомца:"
 
     await state.set_state(PetsStates.select_waiting_id)

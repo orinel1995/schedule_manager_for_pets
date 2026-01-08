@@ -80,4 +80,3 @@ async def schedules_stub(message: Message) -> None:
 @router.message(F.text == "📋 Задания на сегодня")
 async def today_stub(message: Message) -> None:
     await message.answer("Раздел «Задания на сегодня» в разработке.")
-
