@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 from handlers.menu import router as menu_router
 from handlers.pets import router as pets_router
 from handlers.procedure import router as procedures_router
+from handlers.schedules import router as schedules_router
 
 
 def create_bot_and_dispatcher() -> tuple[Bot, Dispatcher]:
@@ -27,5 +28,6 @@ def create_bot_and_dispatcher() -> tuple[Bot, Dispatcher]:
     dp.include_router(menu_router)
     dp.include_router(pets_router)
     dp.include_router(procedures_router)
+    dp.include_router(schedules_router)
 
     return bot, dp

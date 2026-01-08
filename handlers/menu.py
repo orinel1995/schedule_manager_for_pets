@@ -7,7 +7,8 @@ from states.pets import PetsStates
 from keyboards.pets import pets_menu_keyboard
 from states.procedures import ProcedureStates
 from keyboards.procedures import procedures_menu_keyboard
-
+from states.schedules import SchedulesStates
+from keyboards.schedules import schedules_menu_keyboard
 
 router = Router()
 
@@ -80,12 +81,20 @@ async def procedures_menu_entry(message: Message, state: FSMContext) -> None:
         reply_markup=procedures_menu_keyboard()
     )
 
-# --- Заглушки под будущие разделы (чтобы не было 'Update not handled') ---
-
 
 @router.message(F.text == "📅 Управление расписаниями")
-async def schedules_stub(message: Message) -> None:
-    await message.answer("Раздел «Расписания» в разработке.")
+async def schedules_menu_entry(message: Message, state: FSMContext) -> None:
+    """
+    Переход в меню управления расписаниями.
+    """
+    await state.set_state(SchedulesStates.action_select)
+
+    await message.answer(
+        "Выберите действие:",
+        reply_markup=schedules_menu_keyboard()
+    )
+
+# --- Заглушки под будущие разделы (чтобы не было 'Update not handled') ---
 
 
 @router.message(F.text == "📋 Задания на сегодня")

@@ -60,11 +60,10 @@ async def pet_create_process(message: Message, state: FSMContext):
     pet_id = pet_repo.create(name, pet_type)
     pet = pet_repo.get_by_id(pet_id)
 
-    await state.clear()
-
+    await state.set_state(PetsStates.action_select)
     await message.answer(
         f"Получен питомец:" + "\n" + format_pet(pet),
-        reply_markup=cancel_keyboard()
+        reply_markup=pet_actions_keyboard()
     )
 
 

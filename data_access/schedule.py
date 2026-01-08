@@ -261,6 +261,47 @@ class Schedule:
 
         return result
 
+    def get_by_id(self, schedule_id: int) -> Optional[Dict]:
+        """
+        Возвращает расписание по id в виде словаря.
+
+        :param schedule_id: id расписания
+        """
+        with db_connection(self.db_name) as conn:
+            cursor = conn.cursor()
+
+            cursor.execute("""
+                SELECT
+                    s.id,
+                    s.pet_id,
+                    p.name AS pet_name,
+                    s.procedure_id,
+                    pr.name AS procedure_name,
+                    s.schedule_type_id,
+                    s.value,
+                    s.active
+                FROM schedule s
+                JOIN pet p ON p.id = s.pet_id
+                JOIN procedure pr ON pr.id = s.procedure_id
+                WHERE s.id = ?
+            """, (schedule_id,))
+
+            row = cursor.fetchone()
+
+        if row is None:
+            return None
+
+        return {
+            "id": row["id"],
+            "pet_id": row["pet_id"],
+            "pet_name": row["pet_name"],
+            "procedure_id": row["procedure_id"],
+            "procedure_name": row["procedure_name"],
+            "schedule_type_id": row["schedule_type_id"],
+            "value": row["value"],
+            "active": bool(row["active"]),
+        }
+
     def get_active(self, pet_id: Optional[int] = None) -> List[Dict]:
         """
         Возвращает список всех активных расписаний.

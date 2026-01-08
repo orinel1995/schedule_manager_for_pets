@@ -8,7 +8,7 @@
 """
 
 from datetime import date, datetime
-from typing import Optional, List
+from typing import Optional, List, Any
 from enum import Enum
 
 
@@ -16,6 +16,31 @@ SUPPORTED_DATE_FORMATS = (
     "%Y-%m-%d",   # 2025-12-01
     "%d.%m.%Y",   # 01.12.2025
 )
+
+MONTHS_RU = {
+    1: "января",
+    2: "февраля",
+    3: "марта",
+    4: "апреля",
+    5: "мая",
+    6: "июня",
+    7: "июля",
+    8: "августа",
+    9: "сентября",
+    10: "октября",
+    11: "ноября",
+    12: "декабря",
+}
+
+WEEKDAYS_RU = {
+    "MONDAY": "каждый понедельник",
+    "TUESDAY": "каждый вторник",
+    "WEDNESDAY": "каждую среду",
+    "THURSDAY": "каждый четверг",
+    "FRIDAY": "каждую пятницу",
+    "SATURDAY": "каждую субботу",
+    "SUNDAY": "каждое воскресенье",
+}
 
 
 class WeekDay(Enum):
@@ -29,18 +54,24 @@ class WeekDay(Enum):
     SUNDAY = ("вс", "воскресенье")
 
     @classmethod
-    def parse(cls, value: str) -> "WeekDay":
+    def parse(cls, value: str) -> Optional["WeekDay"]:
         normalized = value.strip().lower()
 
         for day in cls:
             if normalized in day.value:
                 return day
 
-        raise ValueError(f"Неизвестный день недели: {value}")
+        return None
 
     @classmethod
-    def parse_many(cls, value: str) -> List["WeekDay"]:
-        return [cls.parse(part) for part in value.split(",")]
+    def parse_many(cls, value: str) -> list["WeekDay"]:
+        result = []
+        for part in value.split(","):
+            day = cls.parse(part)
+            if day is not None:
+                result.append(day)
+
+        return result
 
 
 def parse_user_date(value: Optional[str]) -> Optional[str]:
