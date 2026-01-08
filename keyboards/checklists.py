@@ -5,7 +5,7 @@ def today_checklist_keyboard(items: list[dict]) -> InlineKeyboardMarkup:
     keyboard = []
 
     for item in items:
-        status_icon = "☑️" if item["status"] else "⬜"
+        status_icon = "✅" if item["status"] else "⬜"
         text = (
             f"{status_icon} "
             f"{item['pet_name']}: "

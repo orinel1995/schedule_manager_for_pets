@@ -10,7 +10,6 @@ def pets_menu_keyboard() -> ReplyKeyboardMarkup:
     builder.add(
         KeyboardButton(text="➕ Создать нового питомца"),
         KeyboardButton(text="📋 Выбрать существующего"),
-        KeyboardButton(text="🏠 Главное меню"),
     )
 
     builder.adjust(1)
@@ -31,7 +30,6 @@ def pet_actions_keyboard() -> ReplyKeyboardMarkup:
         KeyboardButton(text="✏️ Изменить тип"),
         KeyboardButton(text="📅 Изменить дату рождения"),
         KeyboardButton(text="⛔ Деактивировать"),
-        KeyboardButton(text="🏠 Главное меню"),
     )
 
     builder.adjust(1)
@@ -49,21 +47,6 @@ def pet_deactivate_keyboard() -> ReplyKeyboardMarkup:
 
     builder.add(
         KeyboardButton(text="❌ Отмена"),
-    )
-
-    return builder.as_markup(
-        resize_keyboard=True,
-        one_time_keyboard=True
-    )
-
-
-# ---------- Универсальный возврат в главное меню ----------
-
-def cancel_keyboard() -> ReplyKeyboardMarkup:
-    builder = ReplyKeyboardBuilder()
-
-    builder.add(
-        KeyboardButton(text="🏠 Главное меню"),
     )
 
     return builder.as_markup(

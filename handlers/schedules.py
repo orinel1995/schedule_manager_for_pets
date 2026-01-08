@@ -15,8 +15,6 @@ from keyboards.schedules import (
     schedule_cancel_keyboard,
 )
 
-from keyboards.pets import cancel_keyboard as main_menu_keyboard
-
 from utils.formatters import (
     format_schedule,
     format_schedules_grouped,
@@ -38,7 +36,7 @@ async def schedules_menu_entry(message: Message, state: FSMContext):
 
 # ---------- СОЗДАНИЕ РАСПИСАНИЯ ----------
 
-@router.message(SchedulesStates.action_select, F.text == "➕ Создать расписание")
+@router.message(SchedulesStates.action_select, F.text == "➕ Создать новое расписание")
 async def schedule_create_start(message: Message, state: FSMContext):
     pet_repo = Pet(user=str(message.from_user.id))
     pets = pet_repo.get_active()
@@ -315,20 +313,8 @@ async def schedule_deactivate_process(message: Message, state: FSMContext):
     schedule_repo.set_active(schedule_id, False)
 
     schedule = schedule_repo.get_by_id(schedule_id)
-    await state.clear()
-
+    await state.set_state(SchedulesStates.action_select)
     await message.answer(
         "Расписание деактивировано:\n\n" + format_schedule(schedule),
         reply_markup=schedules_menu_keyboard(),
-    )
-
-
-# ---------- ВОЗВРАТ В ГЛАВНОЕ МЕНЮ ----------
-
-@router.message(F.text == "🏠 Главное меню")
-async def back_to_main_menu(message: Message, state: FSMContext):
-    await state.clear()
-    await message.answer(
-        "Выберите категорию:",
-        reply_markup=main_menu_keyboard(),
     )

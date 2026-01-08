@@ -8,7 +8,6 @@ from keyboards.procedures import (
     procedures_menu_keyboard,
     procedure_actions_keyboard,
     procedure_cancel_keyboard,
-    main_menu_keyboard,
 )
 from utils.formatters import format_procedure
 
@@ -65,8 +64,9 @@ async def procedure_select(message: Message, state: FSMContext):
     procedures = procedure_repo.get_active()
 
     if not procedures:
+        await state.set_state(ProcedureStates.action_select)
         await message.answer(
-            "Активные процедур нет.",
+            "Активных процедур нет.",
             reply_markup=procedures_menu_keyboard(),
         )
         return
@@ -193,9 +193,9 @@ async def procedure_deactivate_process(message: Message, state: FSMContext):
     procedure_repo.update_active(procedure_id, False)
 
     procedure = procedure_repo.get_by_id(procedure_id)
-    await state.clear()
+    await state.set_state(ProcedureStates.action_select)
 
     await message.answer(
         "Процедура деактивирована:\n\n" + format_procedure(procedure),
-        reply_markup=main_menu_keyboard(),
+        reply_markup=procedures_menu_keyboard(),
     )

@@ -16,11 +16,10 @@ async def main() -> None:
     init_database()
     bot, dp = create_bot_and_dispatcher()
     await bot.set_my_commands([
-        BotCommand(command="menu", description="🏠 Главное меню"),
-        BotCommand(command="🐾 Управление питомцами", description="🐾 Управление питомцами"),
-        BotCommand(command="🧪 Управление процедурами", description="🧪 Управление процедурами"),
-        BotCommand(command="📅 Управление расписаниями", description="📅 Управление расписаниями"),
-        BotCommand(command="📋 Задания на сегодня", description="📋 Задания на сегодня"),
+        BotCommand(command="pets", description="🐾 Управление питомцами"),
+        BotCommand(command="procedures", description="🧪 Управление процедурами"),
+        BotCommand(command="schedules", description="📅 Управление расписаниями"),
+        BotCommand(command="today_tasks", description="📋 Задания на сегодня"),
     ])
 
     await bot.set_chat_menu_button(

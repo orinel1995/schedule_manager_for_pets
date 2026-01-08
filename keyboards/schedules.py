@@ -8,9 +8,8 @@ def schedules_menu_keyboard() -> ReplyKeyboardMarkup:
     builder = ReplyKeyboardBuilder()
 
     builder.add(
-        KeyboardButton(text="➕ Создать расписание"),
+        KeyboardButton(text="➕ Создать новое расписание"),
         KeyboardButton(text="📋 Выбрать существующее"),
-        KeyboardButton(text="🏠 Главное меню"),
     )
 
     builder.adjust(1)
@@ -29,7 +28,6 @@ def schedule_actions_keyboard() -> ReplyKeyboardMarkup:
     builder.add(
         KeyboardButton(text="✏️ Изменить периодичность"),
         KeyboardButton(text="⛔ Деактивировать"),
-        KeyboardButton(text="🏠 Главное меню"),
     )
 
     builder.adjust(1)
@@ -69,21 +67,6 @@ def schedule_cancel_keyboard() -> ReplyKeyboardMarkup:
 
     builder.add(
         KeyboardButton(text="❌ Отмена"),
-    )
-
-    return builder.as_markup(
-        resize_keyboard=True,
-        one_time_keyboard=True
-    )
-
-
-# ---------- Универсальный возврат в главное меню ----------
-
-def main_menu_keyboard() -> ReplyKeyboardMarkup:
-    builder = ReplyKeyboardBuilder()
-
-    builder.add(
-        KeyboardButton(text="🏠 Главное меню"),
     )
 
     return builder.as_markup(
