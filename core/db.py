@@ -108,11 +108,12 @@ def _create_tables(conn: sqlite3.Connection) -> None:
         pet_id INTEGER NOT NULL,
         procedure_id INTEGER NOT NULL,
         status INTEGER NOT NULL CHECK (status IN (0, 1)) DEFAULT 0,
+        active INTEGER NOT NULL CHECK (status IN (0, 1)) DEFAULT 0,
 
         FOREIGN KEY (pet_id) REFERENCES pet(id),
         FOREIGN KEY (procedure_id) REFERENCES procedure(id),
 
-        UNIQUE (date, pet_id, procedure_id)
+        UNIQUE (date, pet_id, procedure_id, active)
     );
     """)
 

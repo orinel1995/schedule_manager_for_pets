@@ -1,5 +1,6 @@
 from aiogram import Router, F
 from aiogram.types import Message
+from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 
 from data_access.procedure import Procedure
@@ -14,16 +15,40 @@ from utils.formatters import format_procedure
 router = Router()
 
 
-@router.message(F.text == "🧪 Управление процедурами")
+@router.message(Command("procedures"))
 async def procedures_menu(message: Message, state: FSMContext):
-    await state.set_state(ProcedureStates.action_select)
+    procedure_repo = Procedure(user=str(message.from_user.id))
+    procedures = procedure_repo.get_active()
+
+    if not procedures:
+        await state.set_state(ProcedureStates.waiting_for_id)
+        await message.answer(
+            "Активных процедур нет.",
+            reply_markup=procedures_menu_keyboard(),
+        )
+        return
+
+    text = "Активные процедуры:\n"
+    text += "────────────────────\n"
+    text += "\n".join(
+        f"🔹 `{p['id']}`: *{p['name']}*"
+        + (f" (_{p['description']}_)" if p.get("description") else "")
+        for p in procedures
+    )
+    text += "\n\n👉 Введите `id` процедуры:"
+
+    await state.set_state(ProcedureStates.waiting_for_id)
     await message.answer(
-        "Выберите действие:",
+        text,
         reply_markup=procedures_menu_keyboard(),
+        parse_mode='Markdown'
     )
 
 
-@router.message(ProcedureStates.action_select, F.text == "➕ Создать новую процедуру")
+@router.message(
+        ProcedureStates.waiting_for_id,
+        F.text == "➕ Создать новую процедуру"
+        )
 async def procedure_create_start(message: Message, state: FSMContext):
     await state.set_state(ProcedureStates.waiting_for_name)
     await message.answer(
@@ -32,12 +57,15 @@ async def procedure_create_start(message: Message, state: FSMContext):
     )
 
 
-@router.message(ProcedureStates.waiting_for_name)
+@router.message(
+        ProcedureStates.waiting_for_name,
+        ~F.text.startswith("/")
+        )
 async def procedure_create_finish(message: Message, state: FSMContext):
     if message.text == "❌ Отмена":
-        await state.set_state(ProcedureStates.action_select)
+        await state.set_state(ProcedureStates.waiting_for_id)
         await message.answer(
-            "Действие отменено.",
+            "Создание процедуры отменено.",
             reply_markup=procedures_menu_keyboard(),
             )
         return
@@ -53,19 +81,20 @@ async def procedure_create_finish(message: Message, state: FSMContext):
     await state.update_data(procedure_id=procedure_id)
 
     await message.answer(
-        format_procedure(procedure),
+        "Получена процедура:\n\n"
+        + format_procedure(procedure),
         reply_markup=procedure_actions_keyboard(),
         parse_mode='Markdown'
     )
 
 
-@router.message(ProcedureStates.action_select, F.text == "📋 Выбрать существующую")
-async def procedure_select(message: Message, state: FSMContext):
+@router.message(ProcedureStates.action_select, F.text == "📋 Выбрать другую")
+async def procedure_select_reverse(message: Message, state: FSMContext):
     procedure_repo = Procedure(user=str(message.from_user.id))
     procedures = procedure_repo.get_active()
 
     if not procedures:
-        await state.set_state(ProcedureStates.action_select)
+        await state.set_state(ProcedureStates.waiting_for_id)
         await message.answer(
             "Активных процедур нет.",
             reply_markup=procedures_menu_keyboard(),
@@ -74,50 +103,52 @@ async def procedure_select(message: Message, state: FSMContext):
 
     procedures.sort(key=lambda p: p["id"])
 
-    text = "Выберите процедуру:\n\n"
+    text = "Активные процедуры:\n\n"
     text += "\n".join(
         f"🔹 `{p['id']}`: *{p['name']}*"
         + (f" (_{p['description']}_)" if p.get("description") else "")
         for p in procedures
     )
-    text += "\n\n👉 Введите id:"
+    text += "\n\n👉 Введите `id` процедуры:"
 
     await state.set_state(ProcedureStates.waiting_for_id)
     await message.answer(
         text,
-        reply_markup=procedure_cancel_keyboard(),
+        reply_markup=procedures_menu_keyboard(),
         parse_mode='Markdown'
     )
 
 
-@router.message(ProcedureStates.waiting_for_id)
+@router.message(
+        ProcedureStates.waiting_for_id,
+        ~F.text.startswith("/")
+        )
 async def procedure_open(message: Message, state: FSMContext):
-    if message.text == "❌ Отмена":
-        await state.set_state(ProcedureStates.action_select)
-        await message.answer(
-            "Действие отменено.",
-            reply_markup=procedures_menu_keyboard(),
-            )
-        return
-
     try:
         procedure_id = int(message.text)
     except ValueError:
-        await message.answer("id должен быть числом.")
+        await message.answer(
+            "`id` должен быть числом.\n\n👉 Попробуйте снова:",
+            reply_markup=procedures_menu_keyboard(),
+            parse_mode='Markdown'
+        )
         return
 
     procedure_repo = Procedure(user=str(message.from_user.id))
     procedure = procedure_repo.get_by_id(procedure_id)
 
-    if not procedure:
-        await message.answer("Процедура не найдена.")
+    if not procedure or not procedure["active"]:
+        await message.answer(
+            "Процедура не найдена.\n\n👉 Попробуйте снова:",
+            reply_markup=procedures_menu_keyboard(),
+            )
         return
 
     await state.set_state(ProcedureStates.action_select)
     await state.update_data(procedure_id=procedure_id)
-
     await message.answer(
-        format_procedure(procedure),
+        "Выбрана процедура:\n\n"
+        + format_procedure(procedure),
         reply_markup=procedure_actions_keyboard(),
         parse_mode='Markdown'
     )
@@ -132,13 +163,16 @@ async def procedure_edit_description_start(message: Message, state: FSMContext):
     )
 
 
-@router.message(ProcedureStates.waiting_for_description)
+@router.message(
+        ProcedureStates.waiting_for_description,
+        ~F.text.startswith("/")
+        )
 async def procedure_edit_description_finish(message: Message, state: FSMContext):
     if message.text == "❌ Отмена":
         await state.set_state(ProcedureStates.action_select)
         await message.answer(
             "Действие отменено.",
-            reply_markup=procedures_menu_keyboard(),
+            reply_markup=procedure_actions_keyboard(),
             )
         return
 
@@ -150,13 +184,12 @@ async def procedure_edit_description_finish(message: Message, state: FSMContext)
         procedure_id,
         message.text.strip(),
     )
-
     procedure = procedure_repo.get_by_id(procedure_id)
 
     await state.set_state(ProcedureStates.action_select)
-
     await message.answer(
-        format_procedure(procedure),
+        "Процедура обновлена:\n\n"
+        + format_procedure(procedure),
         reply_markup=procedure_actions_keyboard(),
         parse_mode='Markdown'
     )
@@ -165,23 +198,25 @@ async def procedure_edit_description_finish(message: Message, state: FSMContext)
 @router.message(ProcedureStates.action_select, F.text == "⛔ Деактивировать")
 async def procedure_deactivate_confirm(message: Message, state: FSMContext):
     data = await state.get_data()
-    procedure_id = data["procedure_id"]
+    procedure_id = data.get("procedure_id")
 
     procedure_repo = Procedure(user=str(message.from_user.id))
     procedure = procedure_repo.get_by_id(procedure_id)
 
     await state.set_state(ProcedureStates.deactivate_confirm)
-
     await message.answer(
         "Вы уверены, что хотите деактивировать эту процедуру?\n\n"
         + format_procedure(procedure)
-        + "\n\n👉 Введите id еще раз:",
+        + "\n\n👉 Введите `id` еще раз для подтверждения:",
         reply_markup=procedure_cancel_keyboard(),
         parse_mode='Markdown'
     )
 
 
-@router.message(ProcedureStates.deactivate_confirm)
+@router.message(
+        ProcedureStates.deactivate_confirm,
+        ~F.text.startswith("/")
+        )
 async def procedure_deactivate_process(message: Message, state: FSMContext):
     data = await state.get_data()
     procedure_id = data["procedure_id"]
@@ -190,17 +225,34 @@ async def procedure_deactivate_process(message: Message, state: FSMContext):
         await state.set_state(ProcedureStates.action_select)
         await message.answer(
             "Деактивация отменена.",
-            reply_markup=procedures_menu_keyboard(),
+            reply_markup=procedure_actions_keyboard(),
             )
         return
 
     procedure_repo = Procedure(user=str(message.from_user.id))
     procedure_repo.update_active(procedure_id, False)
+    procedures = procedure_repo.get_active()
 
-    await state.set_state(ProcedureStates.action_select)
+    if not procedures:
+        await state.set_state(ProcedureStates.waiting_for_id)
+        await message.answer(
+            "Активных процедур нет.",
+            reply_markup=procedures_menu_keyboard(),
+        )
+        return
 
+    text = "Активные процедуры:\n\n"
+    text += "────────────────────\n"
+    text += "\n".join(
+        f"🔹 `{p['id']}`: *{p['name']}*"
+        + (f" (_{p['description']}_)" if p.get("description") else "")
+        for p in procedures
+    )
+    text += "\n\n👉 Введите `id` процедуры:"
+
+    await state.set_state(ProcedureStates.waiting_for_id)
     await message.answer(
-        "Процедура деактивирована.",
+        text,
         reply_markup=procedures_menu_keyboard(),
         parse_mode='Markdown'
     )

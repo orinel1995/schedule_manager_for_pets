@@ -2,6 +2,7 @@ from datetime import date
 from typing import List, Dict
 
 from core.db import db_connection, DB_NAME, USER_NAME
+from data_access.schedule import Schedule
 
 
 class Checklist:
@@ -12,8 +13,6 @@ class Checklist:
         """
         self.db_name = db_name
         self.user = user
-
-    # ---------- ИНИЦИАЛИЗАЦИЯ ЗАДАНИЙ НА СЕГОДНЯ ----------
 
     def ensure_today_tasks(self, schedules: List[Dict]) -> None:
         """
@@ -34,9 +33,10 @@ class Checklist:
                         date,
                         pet_id,
                         procedure_id,
-                        status
+                        status,
+                        active
                     )
-                    VALUES (?, ?, ?, 0)
+                    VALUES (?, ?, ?, 0, 1)
                 """, (
                     today,
                     item["pet_id"],
@@ -44,8 +44,6 @@ class Checklist:
                 ))
 
             conn.commit()
-
-    # ---------- ПОЛУЧЕНИЕ ЧЕКЛИСТА НА СЕГОДНЯ ----------
 
     def get_today(self) -> List[Dict]:
         """
@@ -66,7 +64,7 @@ class Checklist:
                 FROM checklist c
                 JOIN pet p ON p.id = c.pet_id
                 JOIN procedure pr ON pr.id = c.procedure_id
-                WHERE c.date = ?
+                WHERE c.date = ? and c.active = 1
                 ORDER BY p.name, pr.name
             """, (today,))
 
@@ -83,8 +81,6 @@ class Checklist:
             for row in rows
         ]
 
-    # ---------- ОБНОВЛЕНИЕ СТАТУСА ----------
-
     def set_status(self, checklist_id: int, status: bool) -> None:
         """
         Обновляет статус выполнения задачи.
@@ -100,5 +96,41 @@ class Checklist:
                 int(status),
                 checklist_id,
             ))
+
+            conn.commit()
+
+    def update_inactive(self, user: str = USER_NAME) -> None:
+        """
+        Находит задания, которых нет в текущем расписании и отключает их.
+        """
+        today = date.today().isoformat()
+
+        schedule_repo = Schedule(user=user)
+        active_schedules: List[Dict] = schedule_repo.get_active()
+
+        active_pairs = {
+            (s["pet_id"], s["procedure_id"]) for s in active_schedules
+            }
+
+        with db_connection(self.db_name) as conn:
+            cursor = conn.cursor()
+
+            cursor.execute("""
+                SELECT id, pet_id, procedure_id
+                FROM checklist
+                WHERE date = ? AND active = 1
+            """, (today,)
+            )
+
+            checklist_rows = cursor.fetchall()
+
+            for row in checklist_rows:
+                pair = (row["pet_id"], row["procedure_id"])
+                if pair not in active_pairs:
+                    cursor.execute("""
+                        UPDATE checklist
+                        SET active = 0
+                        WHERE id = ?
+                    """, (row["id"],))
 
             conn.commit()

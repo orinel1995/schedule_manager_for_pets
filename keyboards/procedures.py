@@ -9,7 +9,6 @@ def procedures_menu_keyboard() -> ReplyKeyboardMarkup:
 
     builder.add(
         KeyboardButton(text="➕ Создать новую процедуру"),
-        KeyboardButton(text="📋 Выбрать существующую"),
     )
 
     builder.adjust(1)
@@ -28,6 +27,7 @@ def procedure_actions_keyboard() -> ReplyKeyboardMarkup:
     builder.add(
         KeyboardButton(text="✏️ Изменить описание"),
         KeyboardButton(text="⛔ Деактивировать"),
+        KeyboardButton(text="📋 Выбрать другую"),
     )
 
     builder.adjust(1)

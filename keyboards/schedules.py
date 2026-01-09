@@ -9,7 +9,6 @@ def schedules_menu_keyboard() -> ReplyKeyboardMarkup:
 
     builder.add(
         KeyboardButton(text="➕ Создать новое расписание"),
-        KeyboardButton(text="📋 Выбрать существующее"),
     )
 
     builder.adjust(1)
@@ -28,6 +27,7 @@ def schedule_actions_keyboard() -> ReplyKeyboardMarkup:
     builder.add(
         KeyboardButton(text="✏️ Изменить периодичность"),
         KeyboardButton(text="⛔ Деактивировать"),
+        KeyboardButton(text="📋 Выбрать другое"),
     )
 
     builder.adjust(1)

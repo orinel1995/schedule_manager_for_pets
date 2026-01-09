@@ -2,14 +2,11 @@ from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 from aiogram.utils.keyboard import ReplyKeyboardBuilder
 
 
-# ---------- /pets — главное меню питомцев ----------
-
 def pets_menu_keyboard() -> ReplyKeyboardMarkup:
     builder = ReplyKeyboardBuilder()
 
     builder.add(
         KeyboardButton(text="➕ Создать нового питомца"),
-        KeyboardButton(text="📋 Выбрать существующего"),
     )
 
     builder.adjust(1)
@@ -19,8 +16,6 @@ def pets_menu_keyboard() -> ReplyKeyboardMarkup:
         one_time_keyboard=True
     )
 
-
-# ---------- Действия с выбранным питомцем ----------
 
 def pet_actions_keyboard() -> ReplyKeyboardMarkup:
     builder = ReplyKeyboardBuilder()
@@ -30,6 +25,7 @@ def pet_actions_keyboard() -> ReplyKeyboardMarkup:
         KeyboardButton(text="✏️ Изменить тип"),
         KeyboardButton(text="📅 Изменить дату рождения"),
         KeyboardButton(text="⛔ Деактивировать"),
+        KeyboardButton(text="📋 Выбрать другого"),
     )
 
     builder.adjust(1)
@@ -39,8 +35,6 @@ def pet_actions_keyboard() -> ReplyKeyboardMarkup:
         one_time_keyboard=True
     )
 
-
-# ---------- Подтверждение деактивации ----------
 
 def pet_deactivate_keyboard() -> ReplyKeyboardMarkup:
     builder = ReplyKeyboardBuilder()

@@ -1,5 +1,6 @@
 from aiogram import Router, F
 from aiogram.types import Message
+from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 
 from data_access.pet import Pet
@@ -13,49 +14,71 @@ from core.dates import parse_user_date
 from utils.formatters import format_pet
 
 router = Router()
-CONTEXT_ERROR_TEXT = "Контекст действия утерян. Начните заново."
-
-# ---------- /pets ----------
 
 
-@router.message(F.text == "/pets")
+@router.message(Command("pets"))
 async def pets_menu(message: Message, state: FSMContext):
-    await state.set_state(PetsStates.action_select)
-    await message.answer(
-        "Выберите действие:",
-        reply_markup=pets_menu_keyboard()
-    )
+    pet_repo = Pet(user=str(message.from_user.id))
+    pets = pet_repo.get_active()
 
-
-# ---------- СОЗДАНИЕ ПИТОМЦА ----------
-
-@router.message(F.text == "➕ Создать нового питомца")
-async def pet_create_start(message: Message, state: FSMContext):
-    await state.set_state(PetsStates.create_waiting_input)
-    await message.answer(
-        "Введите имя и тип питомца через запятую, пример:\nБарсик, кот",
-        reply_markup=pet_deactivate_keyboard()
-    )
-
-
-@router.message(PetsStates.create_waiting_input)
-async def pet_create_process(message: Message, state: FSMContext):
-    if message.text == "❌ Отмена":
-        await state.clear()
+    if not pets:
+        await state.set_state(PetsStates.select_waiting_id)
         await message.answer(
-            "Действие отменено.",
+            "Активных питомцев нет.",
             reply_markup=pets_menu_keyboard()
             )
         return
 
-    parts = [p.strip() for p in message.text.split(",")][:2]
+    text = "Активные питомцы:\n"
+    text += "────────────────────\n"
+    text += "\n".join(
+        f"🔹 `{p['id']}`: *{p['name']}* (_{p['type']}_)" for p in pets
+        )
+    text += "\n\n👉 Введите id:"
+
+    await state.set_state(PetsStates.select_waiting_id)
+    await message.answer(
+        text,
+        reply_markup=pets_menu_keyboard(),
+        parse_mode='Markdown'
+        )
+
+
+@router.message(
+        PetsStates.select_waiting_id,
+        F.text == "➕ Создать нового питомца"
+        )
+async def pet_create_start(message: Message, state: FSMContext):
+    await state.set_state(PetsStates.create_waiting_input)
+    await message.answer(
+        "Введите имя и тип питомца через запятую, например: `Барсик, кот`",
+        reply_markup=pet_deactivate_keyboard(),
+        parse_mode='Markdown'
+    )
+
+
+@router.message(
+        PetsStates.create_waiting_input,
+        ~F.text.startswith("/")
+        )
+async def pet_create_process(message: Message, state: FSMContext):
+    if message.text == "❌ Отмена":
+        await state.set_state(PetsStates.select_waiting_id)
+        await message.answer(
+            "Создание питомца отменено.",
+            reply_markup=pets_menu_keyboard()
+            )
+        return
+
+    parts = [p.strip() for p in message.text.split(",")]
     if len(parts) < 2 or not all(parts):
         await message.answer(
             "Не удалось создать питомца из введенных данных, попробуйте заново:"
         )
         return
 
-    name, pet_type = parts
+    name = parts[0]
+    pet_type = ", ".join(parts[1:])
 
     pet_repo = Pet(user=str(message.from_user.id))
     pet_id = pet_repo.create(name, pet_type)
@@ -70,14 +93,13 @@ async def pet_create_process(message: Message, state: FSMContext):
     )
 
 
-# ---------- ВЫБОР ПИТОМЦА ----------
-
-@router.message(F.text == "📋 Выбрать существующего")
+@router.message(
+        PetsStates.action_select,
+        F.text == "📋 Выбрать другого"
+        )
 async def pet_select_start(message: Message, state: FSMContext):
     pet_repo = Pet(user=str(message.from_user.id))
     pets = pet_repo.get_active()
-
-    pets.sort(key=lambda x: x["id"])
 
     if not pets:
         await message.answer(
@@ -86,48 +108,55 @@ async def pet_select_start(message: Message, state: FSMContext):
             )
         return
 
-    text = "Выберите питомца:\n\n"
-    text += "\n".join(f"🔹 `{p['id']}`: *{p['name']}* (_{p['type']}_)" for p in pets)
+    text = "Активные питомцы:\n"
+    text += "────────────────────\n"
+    text += "\n".join(
+        f"🔹 `{p['id']}`: *{p['name']}* (_{p['type']}_)" for p in pets
+        )
     text += "\n\n👉 Введите id:"
 
     await state.set_state(PetsStates.select_waiting_id)
     await message.answer(
-        text, 
-        reply_markup=pet_deactivate_keyboard(),
-        parse_mode='Markdown')
+        text,
+        reply_markup=pets_menu_keyboard(),
+        parse_mode='Markdown'
+        )
 
 
-@router.message(PetsStates.select_waiting_id)
+@router.message(
+        PetsStates.select_waiting_id,
+        ~F.text.startswith("/")
+        )
 async def pet_select_process(message: Message, state: FSMContext):
-    if message.text == "❌ Отмена":
-        await state.clear()
+    try:
+        pet_id = int(message.text)
+    except ValueError:
         await message.answer(
-            "Действие отменено.",
-            reply_markup=pets_menu_keyboard()
-            )
+            "`id` должен быть числом.\n\n👉 Попробуйте снова:",
+            reply_markup=pets_menu_keyboard(),
+            parse_mode='Markdown'
+        )
         return
 
-    if not message.text.isdigit():
-        await message.answer("id не найден, попробуйте заново:")
-        return
-
-    pet_id = int(message.text)
     pet_repo = Pet(user=str(message.from_user.id))
     pet = pet_repo.get_by_id(pet_id)
 
-    if pet is None or not pet["active"]:
-        await message.answer("id не найден, попробуйте заново:")
+    if not pet or not pet["active"]:
+        await message.answer(
+            "Питомец не найден.\n\n👉 Попробуйте снова:",
+            reply_markup=pets_menu_keyboard()
+            )
         return
 
     await state.update_data(pet_id=pet_id)
     await state.set_state(PetsStates.action_select)
     await message.answer(
-        f"Действия для {pet['type']} {pet['name']}:",
-        reply_markup=pet_actions_keyboard()
+        "Выбран питомец:\n\n"
+        + format_pet(pet),
+        reply_markup=pet_actions_keyboard(),
+        parse_mode='Markdown'
     )
 
-
-# ---------- ДЕЙСТВИЯ ----------
 
 @router.message(PetsStates.action_select, F.text == "✏️ Изменить имя")
 async def pet_rename_start(message: Message, state: FSMContext):
@@ -135,7 +164,10 @@ async def pet_rename_start(message: Message, state: FSMContext):
     await message.answer("Укажите новое имя:")
 
 
-@router.message(PetsStates.rename_waiting)
+@router.message(
+        PetsStates.rename_waiting,
+        ~F.text.startswith("/")
+        )
 async def pet_rename_process(message: Message, state: FSMContext):
     data = await state.get_data()
     pet_id = data.get("pet_id")
@@ -146,7 +178,8 @@ async def pet_rename_process(message: Message, state: FSMContext):
     pet = pet_repo.get_by_id(pet_id)
     await state.set_state(PetsStates.action_select)
     await message.answer(
-        "Данные изменены:\n\n" + format_pet(pet),
+        "Данные изменены:\n\n"
+        + format_pet(pet),
         reply_markup=pet_actions_keyboard(),
         parse_mode='Markdown'
     )
@@ -158,7 +191,10 @@ async def pet_change_type_start(message: Message, state: FSMContext):
     await message.answer("Укажите новый тип:")
 
 
-@router.message(PetsStates.type_waiting)
+@router.message(
+        PetsStates.type_waiting,
+        ~F.text.startswith("/")
+        )
 async def pet_change_type_process(message: Message, state: FSMContext):
     data = await state.get_data()
     pet_id = data.get("pet_id")
@@ -169,7 +205,8 @@ async def pet_change_type_process(message: Message, state: FSMContext):
     pet = pet_repo.get_by_id(pet_id)
     await state.set_state(PetsStates.action_select)
     await message.answer(
-        "Данные изменены:\n\n" + format_pet(pet),
+        "Данные изменены:\n\n"
+        + format_pet(pet),
         reply_markup=pet_actions_keyboard(),
         parse_mode='Markdown'
     )
@@ -178,14 +215,20 @@ async def pet_change_type_process(message: Message, state: FSMContext):
 @router.message(PetsStates.action_select, F.text == "📅 Изменить дату рождения")
 async def pet_change_date_start(message: Message, state: FSMContext):
     await state.set_state(PetsStates.date_waiting)
-    await message.answer("Укажите новую дату в формате DD.MM.YYYY:")
+    await message.answer(
+        "Укажите дату, например `22.05.2000`:",
+        parse_mode='Markdown'
+        )
 
 
-@router.message(PetsStates.date_waiting)
+@router.message(
+        PetsStates.date_waiting,
+        ~F.text.startswith("/")
+        )
 async def pet_change_date_process(message: Message, state: FSMContext):
     parsed = parse_user_date(message.text)
     if parsed is None:
-        await message.answer("Не верный формат даты, попробуйте заново:")
+        await message.answer("Не верный формат даты\n\n👉 Попробуйте снова:")
         return
 
     data = await state.get_data()
@@ -197,13 +240,12 @@ async def pet_change_date_process(message: Message, state: FSMContext):
     pet = pet_repo.get_by_id(pet_id)
     await state.set_state(PetsStates.action_select)
     await message.answer(
-        "Данные изменены:\n\n" + format_pet(pet),
+        "Данные изменены:\n\n"
+        + format_pet(pet),
         reply_markup=pet_actions_keyboard(),
         parse_mode='Markdown'
     )
 
-
-# ---------- ДЕАКТИВАЦИЯ ----------
 
 @router.message(PetsStates.action_select, F.text == "⛔ Деактивировать")
 async def pet_deactivate_confirm(message: Message, state: FSMContext):
@@ -214,17 +256,19 @@ async def pet_deactivate_confirm(message: Message, state: FSMContext):
     pet = pet_repo.get_by_id(pet_id)
 
     await state.set_state(PetsStates.deactivate_confirm)
-
     await message.answer(
         "Вы уверены, что хотите деактивировать этого питомца?\n\n"
         + format_pet(pet)
-        + "\n\n👉 Введите id еще раз:",
+        + "\n\n👉 Введите `id` еще раз для подтверждения:",
         reply_markup=pet_deactivate_keyboard(),
         parse_mode='Markdown'
     )
 
 
-@router.message(PetsStates.deactivate_confirm)
+@router.message(
+        PetsStates.deactivate_confirm,
+        ~F.text.startswith("/")
+        )
 async def pet_deactivate_process(message: Message, state: FSMContext):
     data = await state.get_data()
     pet_id = data.get("pet_id")
@@ -239,10 +283,26 @@ async def pet_deactivate_process(message: Message, state: FSMContext):
 
     pet_repo = Pet(user=str(message.from_user.id))
     pet_repo.update_active(pet_id, False)
+    pets = pet_repo.get_active()
 
-    await state.set_state(PetsStates.action_select)
+    if not pets:
+        await state.set_state(PetsStates.waiting_for_id)
+        await message.answer(
+            "Активных питомцев нет.",
+            reply_markup=pets_menu_keyboard()
+            )
+        return
+
+    text = "Активные питомцы:\n"
+    text += "────────────────────\n"
+    text += "\n".join(
+        f"🔹 `{p['id']}`: *{p['name']}* (_{p['type']}_)" for p in pets
+        )
+    text += "\n\n👉 Введите id питомца:"
+
+    await state.set_state(PetsStates.select_waiting_id)
     await message.answer(
-        "Питомец деактивирован.",
+        text,
         reply_markup=pets_menu_keyboard(),
         parse_mode='Markdown'
-    )
+        )

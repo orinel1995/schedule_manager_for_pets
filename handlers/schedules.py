@@ -1,10 +1,12 @@
 from aiogram import Router, F
-from aiogram.types import Message, ReplyKeyboardRemove
+from aiogram.types import Message
 from aiogram.fsm.context import FSMContext
+from aiogram.filters import Command
 
 from data_access.pet import Pet
 from data_access.procedure import Procedure
 from data_access.schedule import Schedule
+from data_access.checklist import Checklist
 
 from states.schedules import SchedulesStates
 
@@ -23,26 +25,39 @@ from utils.formatters import (
 router = Router()
 
 
-# ---------- ВХОД В МЕНЮ РАСПИСАНИЙ ----------
-
-@router.message(F.text == "📅 Управление расписаниями")
+@router.message(Command("schedules"))
 async def schedules_menu_entry(message: Message, state: FSMContext):
-    await state.set_state(SchedulesStates.action_select)
+    schedule_repo = Schedule(user=str(message.from_user.id))
+    schedules = schedule_repo.get_active()
+
+    if not schedules:
+        await state.set_state(SchedulesStates.waiting_for_schedule_id)
+        await message.answer(
+            "Активных расписаний нет.",
+            reply_markup=schedules_menu_keyboard(),
+        )
+        return
+
+    await state.set_state(SchedulesStates.waiting_for_schedule_id)
     await message.answer(
-        "Выберите действие:",
+        "Активные расписания:\n\n"
+        + format_schedules_grouped(schedules)
+        + "\n\n👉 Введите `id` расписания:",
         reply_markup=schedules_menu_keyboard(),
+        parse_mode="Markdown"
     )
 
 
-# ---------- СОЗДАНИЕ РАСПИСАНИЯ ----------
-
-@router.message(SchedulesStates.action_select, F.text == "➕ Создать новое расписание")
+@router.message(
+        SchedulesStates.waiting_for_schedule_id,
+        F.text == "➕ Создать новое расписание"
+        )
 async def schedule_create_start(message: Message, state: FSMContext):
     pet_repo = Pet(user=str(message.from_user.id))
     pets = pet_repo.get_active()
 
     if not pets:
-        await state.set_state(SchedulesStates.action_select)
+        await state.set_state(SchedulesStates.waiting_for_schedule_id)
         await message.answer(
             "У вас нет активных питомцев.",
             reply_markup=schedules_menu_keyboard(),
@@ -50,8 +65,10 @@ async def schedule_create_start(message: Message, state: FSMContext):
         return
 
     text = "Выберите питомца:\n\n"
-    text += "\n".join(f"🔹 `{p['id']}`: *{p['name']}* (_{p['type']}_)" for p in pets)
-    text += "\n\n👉 Введите id:"
+    text += "\n".join(
+        f"🔹 `{p['id']}`: *{p['name']}* (_{p['type']}_)" for p in pets
+        )
+    text += "\n\n👉 Введите `id`:"
 
     await state.set_state(SchedulesStates.waiting_for_pet_id)
     await message.answer(
@@ -61,12 +78,15 @@ async def schedule_create_start(message: Message, state: FSMContext):
     )
 
 
-@router.message(SchedulesStates.waiting_for_pet_id)
+@router.message(
+        SchedulesStates.waiting_for_pet_id,
+        ~F.text.startswith("/")
+        )
 async def schedule_create_pet_selected(message: Message, state: FSMContext):
     if message.text == "❌ Отмена":
-        await state.set_state(SchedulesStates.action_select)
+        await state.set_state(SchedulesStates.waiting_for_schedule_id)
         await message.answer(
-            "Действие отменено.",
+            "Создание расписания отменено.",
             reply_markup=schedules_menu_keyboard(),
         )
         return
@@ -74,14 +94,17 @@ async def schedule_create_pet_selected(message: Message, state: FSMContext):
     try:
         pet_id = int(message.text)
     except ValueError:
-        await message.answer("id должен быть числом. Попробуйте снова:")
+        await message.answer(
+            "`id` должен быть числом.\n\n👉 Попробуйте снова:",
+            parse_mode='Markdown')
         return
 
     pet_repo = Pet(user=str(message.from_user.id))
     pet = pet_repo.get_by_id(pet_id)
 
     if not pet or not pet["active"]:
-        await message.answer("Питомец не найден. Попробуйте снова:")
+        await message.answer(
+            "Питомец не найден.\n\n👉 Попробуйте снова:")
         return
 
     await state.update_data(pet_id=pet_id)
@@ -90,9 +113,9 @@ async def schedule_create_pet_selected(message: Message, state: FSMContext):
     procedures = procedure_repo.get_active()
 
     if not procedures:
-        await state.set_state(SchedulesStates.action_select)
+        await state.set_state(SchedulesStates.waiting_for_schedule_id)
         await message.answer(
-            "У вас нет активных процедур.",
+            "У вас нет активных процедур.\n\nCоздайте новую в /procedures",
             reply_markup=schedules_menu_keyboard(),
         )
         return
@@ -103,7 +126,7 @@ async def schedule_create_pet_selected(message: Message, state: FSMContext):
         + (f" (_{p['description']}_)" if p.get("description") else "")
         for p in procedures
     )
-    text += "\n\n👉 Введите id:"
+    text += "\n\n👉 Введите `id`:"
 
     await state.set_state(SchedulesStates.waiting_for_procedure_id)
     await message.answer(
@@ -113,27 +136,51 @@ async def schedule_create_pet_selected(message: Message, state: FSMContext):
     )
 
 
-@router.message(SchedulesStates.waiting_for_procedure_id)
+@router.message(
+        SchedulesStates.waiting_for_procedure_id,
+        ~F.text.startswith("/")
+        )
 async def schedule_create_finish(message: Message, state: FSMContext):
     if message.text == "❌ Отмена":
-        await state.set_state(SchedulesStates.action_select)
+        await message.answer("Создание расписания отменено.")
+        schedule_repo = Schedule(user=str(message.from_user.id))
+        schedules = schedule_repo.get_active()
+
+        if not schedules:
+            await state.set_state(SchedulesStates.waiting_for_schedule_id)
+            await message.answer(
+                "Активных расписаний нет.",
+                reply_markup=schedules_menu_keyboard(),
+            )
+            return
+
+        await state.set_state(SchedulesStates.waiting_for_schedule_id)
         await message.answer(
-            "Действие отменено.",
+            "Активные расписания:\n"
+            + format_schedules_grouped(schedules)
+            + "\n\n👉 Введите `id` расписания:",
             reply_markup=schedules_menu_keyboard(),
+            parse_mode="Markdown"
         )
         return
 
     try:
         procedure_id = int(message.text)
     except ValueError:
-        await message.answer("id должен быть числом. Попробуйте снова:")
+        await message.answer(
+            "`id` должен быть числом.\n\n👉 Попробуйте снова:",
+            parse_mode="Markdown"
+            )
         return
 
     procedure_repo = Procedure(user=str(message.from_user.id))
     procedure = procedure_repo.get_by_id(procedure_id)
 
     if not procedure or not procedure["active"]:
-        await message.answer("Процедура не найдена. Попробуйте снова:")
+        await message.answer(
+            "Процедура не найдена.\n\n👉 Попробуйте снова:",
+            parse_mode="Markdown"
+            )
         return
 
     data = await state.get_data()
@@ -151,21 +198,23 @@ async def schedule_create_finish(message: Message, state: FSMContext):
     await state.set_state(SchedulesStates.edit_select)
 
     await message.answer(
-        "Получено расписание:\n\n" + format_schedule(schedule),
+        "Получено расписание:\n\n"
+        + format_schedule(schedule),
         reply_markup=schedule_actions_keyboard(),
         parse_mode='Markdown'
     )
 
 
-# ---------- ВЫБОР СУЩЕСТВУЮЩЕГО ----------
-
-@router.message(SchedulesStates.action_select, F.text == "📋 Выбрать существующее")
-async def schedule_select_start(message: Message, state: FSMContext):
+@router.message(
+        SchedulesStates.edit_select,
+        F.text == "📋 Выбрать другое"
+        )
+async def schedule_select_start_reverse(message: Message, state: FSMContext):
     schedule_repo = Schedule(user=str(message.from_user.id))
     schedules = schedule_repo.get_active()
 
     if not schedules:
-        await state.set_state(SchedulesStates.action_select)
+        await state.set_state(SchedulesStates.waiting_for_schedule_id)
         await message.answer(
             "Активных расписаний нет.",
             reply_markup=schedules_menu_keyboard(),
@@ -174,50 +223,54 @@ async def schedule_select_start(message: Message, state: FSMContext):
 
     await state.set_state(SchedulesStates.waiting_for_schedule_id)
     await message.answer(
-        "Выберите расписание:\n"
+        "Активные расписания:\n"
         + format_schedules_grouped(schedules)
-        + "\n\n👉 Введите id:",
-        reply_markup=schedule_cancel_keyboard(),
+        + "\n\n👉 Введите `id` расписания:",
+        reply_markup=schedules_menu_keyboard(),
         parse_mode="Markdown"
     )
+    return
 
 
-@router.message(SchedulesStates.waiting_for_schedule_id)
-async def schedule_selected(message: Message, state: FSMContext):
-    if message.text == "❌ Отмена":
-        await state.set_state(SchedulesStates.action_select)
-        await message.answer(
-            "Действие отменено.",
-            reply_markup=schedules_menu_keyboard(),
+@router.message(
+        SchedulesStates.waiting_for_schedule_id,
+        ~F.text.startswith("/")
         )
-        return
-
+async def schedule_selected(message: Message, state: FSMContext):
     try:
         schedule_id = int(message.text)
     except ValueError:
-        await message.answer("id должен быть числом.")
+        await message.answer(
+            "`id` должен быть числом.\n\n👉 Попробуйте снова:",
+            parse_mode="Markdown"
+            )
         return
 
     schedule_repo = Schedule(user=str(message.from_user.id))
     schedule = schedule_repo.get_by_id(schedule_id)
 
     if not schedule or not schedule["active"]:
-        await message.answer("Расписание не найдено.")
+        await message.answer(
+            "Расписание не найдено.\n\n👉 Попробуйте снова:",
+            parse_mode="Markdown"
+            )
         return
 
     await state.update_data(schedule_id=schedule_id)
     await state.set_state(SchedulesStates.edit_select)
 
     await message.answer(
-        format_schedule(schedule),
+        "Выбрано расписание:\n\n"
+        + format_schedule(schedule),
         reply_markup=schedule_actions_keyboard(),
         parse_mode="Markdown"
     )
 
 
-# ---------- РЕДАКТИРОВАНИЕ ----------
-
-@router.message(SchedulesStates.edit_select, F.text == "✏️ Изменить периодичность")
+@router.message(
+        SchedulesStates.edit_select,
+        F.text == "✏️ Изменить периодичность"
+        )
 async def schedule_edit_start(message: Message, state: FSMContext):
     await state.set_state(SchedulesStates.waiting_for_schedule_type)
     await message.answer(
@@ -226,7 +279,10 @@ async def schedule_edit_start(message: Message, state: FSMContext):
     )
 
 
-@router.message(SchedulesStates.waiting_for_schedule_type)
+@router.message(
+        SchedulesStates.waiting_for_schedule_type,
+        ~F.text.startswith("/")
+        )
 async def schedule_type_selected(message: Message, state: FSMContext):
     mapping_ids = {
         "Каждые Х дней": 1,
@@ -240,8 +296,8 @@ async def schedule_type_selected(message: Message, state: FSMContext):
         "Каждые Х дней": "Введите число дней между повторениями, например `2`:",
         "Каждую неделю": "Перечислите дни недели через запятую, например `пн, ср, пт`:",
         "Каждый месяц": "Укажите день месяца, например `31`:",
-        "Каждый год": "Укажите дату, например `23.05.2000`:",
-        "Конкретный день": "Укажите дату, например `23.05.2000`:"
+        "Каждый год": "Укажите дату, например `22.05.2000`:",
+        "Конкретный день": "Укажите дату, например `22.05.2000`:"
     }
 
     if message.text == "❌ Отмена":
@@ -266,7 +322,10 @@ async def schedule_type_selected(message: Message, state: FSMContext):
     )
 
 
-@router.message(SchedulesStates.waiting_for_schedule_value)
+@router.message(
+        SchedulesStates.waiting_for_schedule_value,
+        ~F.text.startswith("/")
+        )
 async def schedule_value_entered(message: Message, state: FSMContext):
     if message.text == "❌ Отмена":
         await state.set_state(SchedulesStates.edit_select)
@@ -286,15 +345,25 @@ async def schedule_value_entered(message: Message, state: FSMContext):
         schedule_type_id=schedule_type_id,
         input_value=message.text.strip(),
     )
+    schedules = schedule_repo.get_active()
 
-    await state.set_state(SchedulesStates.action_select)
+    if not schedules:
+        await state.set_state(SchedulesStates.waiting_for_schedule_id)
+        await message.answer(
+            "Активных расписаний нет.",
+            reply_markup=schedules_menu_keyboard(),
+        )
+        return
+
+    await state.set_state(SchedulesStates.waiting_for_schedule_id)
     await message.answer(
-        "Расписание обновлено.",
+        "Активные расписания:\n"
+        + format_schedules_grouped(schedules)
+        + "\n\n👉 Введите `id` расписания:",
         reply_markup=schedules_menu_keyboard(),
+        parse_mode="Markdown"
     )
 
-
-# ---------- ДЕАКТИВАЦИЯ ----------
 
 @router.message(SchedulesStates.edit_select, F.text == "⛔ Деактивировать")
 async def schedule_deactivate_confirm(message: Message, state: FSMContext):
@@ -308,13 +377,16 @@ async def schedule_deactivate_confirm(message: Message, state: FSMContext):
     await message.answer(
         "Вы уверены, что хотите деактивировать расписание?\n\n"
         + format_schedule(schedule)
-        + "\n\n👉 Для продолжения введите его id:",
+        + "\n\n👉 Для продолжения введите его `id`:",
         reply_markup=schedule_cancel_keyboard(),
         parse_mode="Markdown"
     )
 
 
-@router.message(SchedulesStates.deactivate_confirm)
+@router.message(
+        SchedulesStates.deactivate_confirm,
+        ~F.text.startswith("/")
+        )
 async def schedule_deactivate_process(message: Message, state: FSMContext):
     data = await state.get_data()
     schedule_id = data["schedule_id"]
@@ -330,9 +402,24 @@ async def schedule_deactivate_process(message: Message, state: FSMContext):
     schedule_repo = Schedule(user=str(message.from_user.id))
     schedule_repo.set_active(schedule_id, False)
 
-    await state.set_state(SchedulesStates.action_select)
+    checklist_repo = Checklist(user=str(message.from_user.id))
+    checklist_repo.update_inactive()
+
+    schedules = schedule_repo.get_active()
+
+    if not schedules:
+        await state.set_state(SchedulesStates.waiting_for_schedule_id)
+        await message.answer(
+            "Активных расписаний нет.",
+            reply_markup=schedules_menu_keyboard(),
+        )
+        return
+
+    await state.set_state(SchedulesStates.waiting_for_schedule_id)
     await message.answer(
-        "Расписание деактивировано.",
+        "Активные расписания:\n"
+        + format_schedules_grouped(schedules)
+        + "\n\n👉 Введите `id` расписания:",
         reply_markup=schedules_menu_keyboard(),
         parse_mode="Markdown"
     )

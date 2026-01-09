@@ -1,15 +1,9 @@
 from aiogram import Router, F
-from aiogram.types import Message
+from aiogram.types import Message, ReplyKeyboardRemove
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from datetime import date
 
-from states.pets import PetsStates
-from keyboards.pets import pets_menu_keyboard
-from states.procedures import ProcedureStates
-from keyboards.procedures import procedures_menu_keyboard
-from states.schedules import SchedulesStates
-from keyboards.schedules import schedules_menu_keyboard
 from keyboards.checklists import today_checklist_keyboard
 from data_access.schedule import Schedule
 from data_access.checklist import Checklist
@@ -22,50 +16,11 @@ router = Router()
 @router.message(Command("start"))
 async def start_handler(message: Message) -> None:
     """
-    /start — главное меню.
+    /start — приветствие.
     """
     await message.answer(
         "Добро пожаловать домой, снова.\n\n"
         "↙️ Выберите команду через кнопку меню ."
-    )
-
-
-@router.message(Command("pets"))
-async def pets_menu_entry(message: Message, state: FSMContext) -> None:
-    """
-    Переход в меню управления питомцами.
-    """
-    await state.set_state(PetsStates.action_select)
-
-    await message.answer(
-        "Выберите действие:",
-        reply_markup=pets_menu_keyboard()
-    )
-
-
-@router.message(Command("procedures"))
-async def procedures_menu_entry(message: Message, state: FSMContext) -> None:
-    """
-    Переход в меню управления процедурами.
-    """
-    await state.set_state(ProcedureStates.action_select)
-
-    await message.answer(
-        "Выберите действие:",
-        reply_markup=procedures_menu_keyboard()
-    )
-
-
-@router.message(Command("schedules"))
-async def schedules_menu_entry(message: Message, state: FSMContext) -> None:
-    """
-    Переход в меню управления расписаниями.
-    """
-    await state.set_state(SchedulesStates.action_select)
-
-    await message.answer(
-        "Выберите действие:",
-        reply_markup=schedules_menu_keyboard()
     )
 
 
@@ -77,24 +32,25 @@ async def today_tasks_handler(message: Message, state: FSMContext):
     schedule_repo = Schedule(user=user_id)
     checklist_repo = Checklist(user=user_id)
 
-    # 1. Получаем расписания на сегодня
     today_schedules = schedule_repo.get_today()
 
     if not today_schedules:
         await message.answer(
-            "На сегодня заданий нет 🙂"
+            "На сегодня заданий нет 🙂",
+            reply_markup=ReplyKeyboardRemove()
         )
         return
 
-    # 2. Инициализируем чеклист (без перезаписи существующих)
     checklist_repo.ensure_today_tasks(today_schedules)
-
-    # 3. Получаем чеклист со статусами
     checklist = checklist_repo.get_today()
 
-    # 4. Отправляем inline-чеклист
     await message.answer(
-        f"Задания на {_format_full_date(date.today().isoformat())}:",
+        text=f"Загружено {len(checklist)} заданий.",
+        reply_markup=ReplyKeyboardRemove(selective=True)
+    )
+
+    await message.answer(
+        f"{_format_full_date(date.today().isoformat())}:",
         reply_markup=today_checklist_keyboard(checklist),
     )
 
@@ -119,10 +75,7 @@ async def checklist_toggle_handler(callback):
         )
         return
 
-    # инвертируем статус
     checklist_repo.set_status(checklist_id, not item["status"])
-
-    # обновляем клавиатуру
     updated_items = checklist_repo.get_today()
 
     await callback.message.edit_reply_markup(

@@ -1,4 +1,4 @@
-from typing import Dict, List
+from typing import Dict
 from datetime import datetime
 from core.dates import MONTHS_RU, WEEKDAYS_RU
 
@@ -114,9 +114,6 @@ def format_schedule(schedule: dict) -> str:
 
 
 def format_schedules_grouped(schedules: list[dict]) -> str:
-    if not schedules:
-        return "Активных расписаний нет."
-
     grouped: dict[str, list[dict]] = {}
 
     for schedule in schedules:
