@@ -33,14 +33,16 @@ class Checklist:
                         date,
                         pet_id,
                         procedure_id,
+                        schedule_id,
                         status,
                         active
                     )
-                    VALUES (?, ?, ?, 0, 1)
+                    VALUES (?, ?, ?, ?, 0, 1)
                 """, (
                     today,
                     item["pet_id"],
                     item["procedure_id"],
+                    item["schedule_id"],
                 ))
 
             conn.commit()
@@ -60,13 +62,20 @@ class Checklist:
                     c.status,
                     p.name AS pet_name,
                     pr.name AS procedure_name,
+                    sh.end_date AS end_date,
                     pr.description AS procedure_description
                 FROM checklist c
                 JOIN pet p ON p.id = c.pet_id
                 JOIN procedure pr ON pr.id = c.procedure_id
-                WHERE c.date = ? and c.active = 1
+                JOIN schedule sh ON sh.id = c.schedule_id
+                WHERE c.date = ?
+                    AND c.active = 1
+                    AND (
+                        sh.end_date >= ?
+                        OR sh.end_date is NULL
+                    )
                 ORDER BY p.name, pr.name
-            """, (today,))
+            """, (today, today))
 
             rows = cursor.fetchall()
 
@@ -103,20 +112,35 @@ class Checklist:
         """
         Находит задания, которых нет в текущем расписании и отключает их.
         """
-        today = date.today().isoformat()
-
+        today = date.today()
         schedule_repo = Schedule(user=user)
         active_schedules: List[Dict] = schedule_repo.get_active()
 
-        active_pairs = {
-            (s["pet_id"], s["procedure_id"]) for s in active_schedules
-            }
+        active_pairs = set()
+
+        for s in active_schedules:
+            start_date = (
+                date.fromisoformat(s["start_date"])
+                if s["start_date"] is not None
+                else None
+            )
+            end_date = (
+                date.fromisoformat(s["end_date"])
+                if s["end_date"] is not None
+                else None
+            )
+
+            if (
+                (start_date is None or start_date <= today)
+                and (end_date is None or today <= end_date)
+            ):
+                active_pairs.add((s["pet_id"], s["procedure_id"]))
 
         with db_connection(self.db_name) as conn:
             cursor = conn.cursor()
 
             cursor.execute("""
-                SELECT id, pet_id, procedure_id
+                SELECT id, pet_id, procedure_id, date
                 FROM checklist
                 WHERE date = ? AND active = 1
             """, (today,)
@@ -127,10 +151,21 @@ class Checklist:
             for row in checklist_rows:
                 pair = (row["pet_id"], row["procedure_id"])
                 if pair not in active_pairs:
+                    # проверяем, есть ли уже запись с active=0
                     cursor.execute("""
-                        UPDATE checklist
-                        SET active = 0
-                        WHERE id = ?
-                    """, (row["id"],))
+                        SELECT 1
+                        FROM checklist
+                        WHERE date = ?
+                            AND pet_id = ?
+                            AND procedure_id = ?
+                            AND active = 0
+                    """, (row["date"], row["pet_id"], row["procedure_id"]))
+
+                    if cursor.fetchone() is None:
+                        cursor.execute("""
+                            UPDATE checklist
+                            SET active = 0
+                            WHERE id = ?
+                        """, (row["id"],))
 
             conn.commit()

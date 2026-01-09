@@ -21,7 +21,6 @@ def temp_db(tmp_path):
             name TEXT NOT NULL,
             type TEXT NOT NULL,
             start_date TEXT NOT NULL,
-            end_date TEXT,
             active INTEGER NOT NULL CHECK (active IN (0, 1))
         );
     """)
@@ -54,7 +53,6 @@ def test_create_pet_success(pet_repo):
     assert pet["name"] == "Барсик"
     assert pet["type"] == "кот"
     assert pet["start_date"] == "2025-03-01"
-    assert pet["end_date"] is None
     assert pet["active"] is True
 
 
@@ -84,7 +82,6 @@ def test_update_active_true_to_false_sets_end_date(pet_repo):
     pet = pet_repo.get_by_id(pet_id)
 
     assert pet["active"] is False
-    assert pet["end_date"] == date.today().isoformat()
 
 
 def test_update_active_false_to_true_clears_end_date(pet_repo):
@@ -96,7 +93,6 @@ def test_update_active_false_to_true_clears_end_date(pet_repo):
     pet = pet_repo.get_by_id(pet_id)
 
     assert pet["active"] is True
-    assert pet["end_date"] is None
 
 
 def test_update_active_idempotent_true(pet_repo):
@@ -107,7 +103,6 @@ def test_update_active_idempotent_true(pet_repo):
     pet = pet_repo.get_by_id(pet_id)
 
     assert pet["active"] is True
-    assert pet["end_date"] is None
 
 
 def test_update_name(pet_repo):

@@ -3,6 +3,8 @@ from aiogram.types import Message
 from aiogram.fsm.context import FSMContext
 from aiogram.filters import Command
 
+from datetime import date
+
 from data_access.pet import Pet
 from data_access.procedure import Procedure
 from data_access.schedule import Schedule
@@ -21,6 +23,9 @@ from utils.formatters import (
     format_schedule,
     format_schedules_grouped,
 )
+
+from core.dates import parse_user_date
+from utils.formatters import _format_full_date
 
 router = Router()
 
@@ -340,7 +345,7 @@ async def schedule_value_entered(message: Message, state: FSMContext):
     schedule_type_id = data["schedule_type_id"]
 
     schedule_repo = Schedule(user=str(message.from_user.id))
-    schedule_repo.update_schedule(
+    schedule_repo.update_schedule_type(
         schedule_id=schedule_id,
         schedule_type_id=schedule_type_id,
         input_value=message.text.strip(),
@@ -361,6 +366,94 @@ async def schedule_value_entered(message: Message, state: FSMContext):
         + format_schedules_grouped(schedules)
         + "\n\n👉 Введите `id` расписания:",
         reply_markup=schedules_menu_keyboard(),
+        parse_mode="Markdown"
+    )
+
+
+@router.message(
+        SchedulesStates.edit_select,
+        F.text == "✏️ Изменить начало"
+        )
+async def schedule_edit_start_date(message: Message, state: FSMContext):
+    await state.set_state(SchedulesStates.waiting_for_start_date)
+    await message.answer(
+        "Укажите дату, например `22.05.2000`:",
+        parse_mode='Markdown'
+        )
+
+
+@router.message(
+        SchedulesStates.waiting_for_start_date,
+        ~F.text.startswith("/")
+        )
+async def start_date_change_process(message: Message, state: FSMContext):
+    parsed = parse_user_date(message.text)
+    if parsed is None:
+        await message.answer("Не верный формат даты\n\n👉 Попробуйте снова:")
+        return
+
+    data = await state.get_data()
+    schedule_id = data.get("schedule_id")
+
+    schedule_repo = Schedule(user=str(message.from_user.id))
+    schedule_repo.update_start_date(schedule_id, parsed)
+
+    schedule = schedule_repo.get_by_id(schedule_id)
+    await state.set_state(SchedulesStates.edit_select)
+    await message.answer(
+        "Обновлено расписание:\n\n"
+        + format_schedule(schedule),
+        reply_markup=schedule_actions_keyboard(),
+        parse_mode="Markdown"
+    )
+
+
+@router.message(
+        SchedulesStates.edit_select,
+        F.text == "✏️ Изменить завершение"
+        )
+async def schedule_edit_end_date(message: Message, state: FSMContext):
+    await state.set_state(SchedulesStates.waiting_for_end_date)
+    await message.answer(
+        "Укажите дату, например `22.05.2000`:",
+        parse_mode='Markdown'
+        )
+
+
+@router.message(
+        SchedulesStates.waiting_for_end_date,
+        ~F.text.startswith("/")
+        )
+async def end_date_change_process(message: Message, state: FSMContext):
+    parsed = parse_user_date(message.text)
+    if parsed is None:
+        await message.answer("Не верный формат даты\n\n👉 Попробуйте снова:")
+        return
+
+    data = await state.get_data()
+    schedule_id = data.get("schedule_id")
+    schedule_repo = Schedule(user=str(message.from_user.id))
+    schedule = schedule_repo.get_by_id(schedule_id)
+
+    start_date_obj = date.fromisoformat(schedule["start_date"])
+    parsed_obj = date.fromisoformat(parsed)
+
+    if parsed_obj < start_date_obj:
+        await message.answer(
+            f"Дата завершения не может быть меньше даты начала "
+            f"({_format_full_date(schedule['start_date'])})\n\n"
+            f"👉 Попробуйте снова:"
+        )
+        return
+
+    schedule_repo.update_end_date(schedule_id, parsed)
+
+    schedule = schedule_repo.get_by_id(schedule_id)
+    await state.set_state(SchedulesStates.edit_select)
+    await message.answer(
+        "Обновлено расписание:\n\n"
+        + format_schedule(schedule),
+        reply_markup=schedule_actions_keyboard(),
         parse_mode="Markdown"
     )
 

@@ -11,3 +11,5 @@ class SchedulesStates(StatesGroup):
     waiting_for_schedule_type = State()
     waiting_for_schedule_value = State()
     deactivate_confirm = State()
+    waiting_for_start_date = State()
+    waiting_for_end_date = State()

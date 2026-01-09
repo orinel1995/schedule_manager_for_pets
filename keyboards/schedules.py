@@ -26,6 +26,8 @@ def schedule_actions_keyboard() -> ReplyKeyboardMarkup:
 
     builder.add(
         KeyboardButton(text="✏️ Изменить периодичность"),
+        KeyboardButton(text="✏️ Изменить начало"),
+        KeyboardButton(text="✏️ Изменить завершение"),
         KeyboardButton(text="⛔ Деактивировать"),
         KeyboardButton(text="📋 Выбрать другое"),
     )

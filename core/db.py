@@ -56,7 +56,6 @@ def _create_tables(conn: sqlite3.Connection) -> None:
         name TEXT NOT NULL,
         type TEXT NOT NULL,
         start_date TEXT NOT NULL,
-        end_date TEXT,
         active INTEGER NOT NULL CHECK (active IN (0, 1))
     );
     """)
@@ -84,6 +83,7 @@ def _create_tables(conn: sqlite3.Connection) -> None:
         procedure_id INTEGER NOT NULL,
         schedule_type_id INTEGER NOT NULL,
         start_date TEXT NOT NULL,
+        end_date TEXT,
         value TEXT NOT NULL,
         active INTEGER NOT NULL CHECK (active IN (0, 1)),
         parent_schedule INTEGER DEFAULT NULL,
@@ -107,11 +107,13 @@ def _create_tables(conn: sqlite3.Connection) -> None:
         date TEXT NOT NULL,
         pet_id INTEGER NOT NULL,
         procedure_id INTEGER NOT NULL,
+        schedule_id INTEGER NOT NULL,
         status INTEGER NOT NULL CHECK (status IN (0, 1)) DEFAULT 0,
         active INTEGER NOT NULL CHECK (status IN (0, 1)) DEFAULT 0,
 
         FOREIGN KEY (pet_id) REFERENCES pet(id),
         FOREIGN KEY (procedure_id) REFERENCES procedure(id),
+        FOREIGN KEY (schedule_id) REFERENCES schedule(id),
 
         UNIQUE (date, pet_id, procedure_id, active)
     );

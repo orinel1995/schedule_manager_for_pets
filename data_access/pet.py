@@ -126,10 +126,8 @@ class Pet:
         """
         Обновляет статус активности питомца.
 
-        Переходы:
-        - False -> True: active = 1, end_date = NULL
-        - True -> False: active = 0, end_date = today
-        - Без изменения состояния — операция не выполняется
+        Если новое значение совпадает с текущим —
+        операция не выполняется.
 
         :param pet_id: id питомца
         :param active: статус активности
@@ -163,31 +161,16 @@ class Pet:
                 )
                 return
 
-            if current_active and not active:
-                end_date = date.today().isoformat()
+            cursor.execute("""
+                UPDATE pet
+                SET active = ?
+                WHERE id = ?
+            """, (int(active), pet_id))
 
-                cursor.execute("""
-                    UPDATE pet
-                    SET active = 0, end_date = ?
-                    WHERE id = ?
-                """, (end_date, pet_id))
-
-                logger.info(
-                    f"Питомец id={pet_id}: active=False, end_date={end_date}",
-                    extra={"user": self.user}
-                )
-
-            elif not current_active and active:
-                cursor.execute("""
-                    UPDATE pet
-                    SET active = 1, end_date = NULL
-                    WHERE id = ?
-                """, (pet_id,))
-
-                logger.info(
-                    f"Питомец id={pet_id}: active=True, end_date очищена",
-                    extra={"user": self.user}
-                )
+            logger.info(
+                f"Питомец id={pet_id}: active изменён на {active}",
+                extra={"user": self.user}
+            )
 
     def get_by_id(self, pet_id: int) -> Optional[Dict]:
         """
@@ -199,7 +182,7 @@ class Pet:
             cursor = conn.cursor()
 
             cursor.execute("""
-                SELECT id, name, type, start_date, end_date, active
+                SELECT id, name, type, start_date, active
                 FROM pet
                 WHERE id = ?
             """, (pet_id,))
@@ -214,7 +197,6 @@ class Pet:
             "name": row["name"],
             "type": row["type"],
             "start_date": row["start_date"],
-            "end_date": row["end_date"],
             "active": bool(row["active"])
         }
 

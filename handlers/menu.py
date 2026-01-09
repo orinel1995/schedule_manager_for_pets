@@ -45,12 +45,12 @@ async def today_tasks_handler(message: Message, state: FSMContext):
     checklist = checklist_repo.get_today()
 
     await message.answer(
-        text=f"Загружено {len(checklist)} заданий.",
+        text="Думаю...",
         reply_markup=ReplyKeyboardRemove(selective=True)
     )
 
     await message.answer(
-        f"{_format_full_date(date.today().isoformat())}:",
+        f"Задания на {_format_full_date(date.today().isoformat())}:",
         reply_markup=today_checklist_keyboard(checklist),
     )
 

@@ -286,7 +286,7 @@ async def pet_deactivate_process(message: Message, state: FSMContext):
     pets = pet_repo.get_active()
 
     if not pets:
-        await state.set_state(PetsStates.waiting_for_id)
+        await state.set_state(PetsStates.select_waiting_id)
         await message.answer(
             "Активных питомцев нет.",
             reply_markup=pets_menu_keyboard()

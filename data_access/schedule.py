@@ -94,7 +94,7 @@ class Schedule:
 
         return schedule_id
 
-    def update_schedule(
+    def update_schedule_type(
         self,
         schedule_id: int,
         schedule_type_id: int,
@@ -170,6 +170,68 @@ class Schedule:
             extra={"user": self.user}
         )
 
+    def update_start_date(self, schedule_id: int, start_date: str) -> None:
+        """
+        Обновляет start_date активного расписания.
+
+        :param schedule_id: id расписания
+        :param start_date: новая дата начала (YYYY-MM-DD)
+        """
+        value = parse_user_date(start_date)
+
+        with db_connection(self.db_name) as conn:
+            cursor = conn.cursor()
+
+            cursor.execute("""
+                UPDATE schedule
+                SET start_date = ?
+                WHERE id = ? AND active = 1
+            """, (value, schedule_id))
+
+            if cursor.rowcount == 0:
+                logger.error(
+                    f"Расписание id={schedule_id} неактивно или не найдено, "
+                    f"start_date не обновлена.",
+                    extra={"user": self.user}
+                )
+                return
+
+        logger.info(
+            f"Расписание id={schedule_id}: start_date обновлена на {start_date}",
+            extra={"user": self.user}
+        )
+
+    def update_end_date(self, schedule_id: int, end_date: str | None) -> None:
+        """
+        Обновляет end_date активного расписания.
+
+        :param schedule_id: id расписания
+        :param end_date: новая дата окончания (YYYY-MM-DD) или None
+        """
+        value = parse_user_date(end_date)
+
+        with db_connection(self.db_name) as conn:
+            cursor = conn.cursor()
+
+            cursor.execute("""
+                UPDATE schedule
+                SET end_date = ?
+                WHERE id = ? AND active = 1
+            """, (value, schedule_id))
+
+            if cursor.rowcount == 0:
+                logger.error(
+                    f"Расписание id={schedule_id} неактивно или не найдено, "
+                    f"end_date не обновлена.",
+                    extra={"user": self.user}
+                )
+                return
+
+        logger.info(
+            f"Расписание id={schedule_id}: end_date обновлена на {end_date}",
+            extra={"user": self.user}
+        )
+
     def get_today(self, today: Optional[date] = None) -> List[Dict]:
         """
         Возвращает список процедур, которые должны быть выполнены сегодня.
@@ -188,9 +250,11 @@ class Schedule:
             cursor = conn.cursor()
             cursor.execute("""
                 SELECT
+                    s.id AS schedule_id,
                     s.schedule_type_id,
                     s.value,
                     s.start_date,
+                    s.end_date,
                     p.name AS pet_name,
                     p.id AS pet_id,
                     pr.name AS procedure_name,
@@ -208,6 +272,12 @@ class Schedule:
             rows = cursor.fetchall()
 
         for row in rows:
+            end_date = row["end_date"]
+            if end_date is not None:
+                end_date_obj = date.fromisoformat(end_date)
+                if end_date_obj < date.today():
+                    continue
+
             execute_today = False
             schedule_type = row["schedule_type_id"]
             value = row["value"]
@@ -256,6 +326,7 @@ class Schedule:
                     "procedure_id": row["procedure_id"],
                     "procedure_name": row["procedure_name"],
                     "procedure_description": row["procedure_description"],
+                    "schedule_id": row["schedule_id"],
                 })
 
         logger.info(
@@ -285,6 +356,7 @@ class Schedule:
                     s.schedule_type_id,
                     s.value,
                     s.start_date,
+                    s.end_date,
                     s.active
                 FROM schedule s
                 JOIN pet p ON p.id = s.pet_id
@@ -306,6 +378,7 @@ class Schedule:
             "schedule_type_id": row["schedule_type_id"],
             "value": row["value"],
             "start_date": row["start_date"],
+            "end_date": row["end_date"],
             "active": bool(row["active"]),
         }
 
@@ -333,6 +406,7 @@ class Schedule:
                     s.schedule_type_id,
                     st.description AS schedule_type_description,
                     s.start_date,
+                    s.end_date,
                     s.value,
                     s.active
                 FROM schedule s

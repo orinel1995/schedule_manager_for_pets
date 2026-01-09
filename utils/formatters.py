@@ -102,12 +102,19 @@ def format_schedule(schedule: dict) -> str:
     else:
         description = ""
 
+    end_date = (
+        _format_full_date(schedule["end_date"])
+        if schedule["end_date"] is not None
+        else "Нет"
+    )
+
     return (
         f"🐾 *{schedule['pet_name']}*\n"
         f"🧪 *{schedule['procedure_name']}* {description}\n"
         f"────────────────────\n"
         f"Периодичность: {format_schedule_period(schedule)}\n"
         f"Дата начала: {_format_full_date(schedule['start_date'])}\n"
+        f"Дата завершения: {end_date}\n"
         f"Статус: {active_to_text(schedule['active'])}\n"
         f"id: {schedule['id']}"
     )
