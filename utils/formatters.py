@@ -16,9 +16,9 @@ def format_pet(pet: Dict) -> str:
     """
     return (
         f"🐾 *{pet['name']}* _({pet['type']})_\n"
-        f"────────────────────\n"
-        f"День рождения: {_format_full_date(pet['start_date'])}\n"
-        f"Статус: {active_to_text(pet['active'])}\n"
+        f"────────────────\n"
+        # f"День рождения: {_format_full_date(pet['start_date'])}\n"
+        # f"Статус: {active_to_text(pet['active'])}\n"
         f"id: `{pet['id']}`"
     )
 
@@ -31,9 +31,9 @@ def format_procedure(procedure: Dict) -> str:
 
     return (
         f"🧪 *{procedure['name']}*\n"
-        f"────────────────────\n"
+        f"────────────────\n"
         f"Описание: {description}\n"
-        f"Статус: {active_to_text(procedure['active'])}\n"
+        # f"Статус: {active_to_text(procedure['active'])}\n"
         f"id: `{procedure['id']}`"
     )
 
@@ -111,11 +111,11 @@ def format_schedule(schedule: dict) -> str:
     return (
         f"🐾 *{schedule['pet_name']}*\n"
         f"🧪 *{schedule['procedure_name']}* {description}\n"
-        f"────────────────────\n"
+        f"────────────────\n"
         f"Периодичность: {format_schedule_period(schedule)}\n"
         f"Дата начала: {_format_full_date(schedule['start_date'])}\n"
         f"Дата завершения: {end_date}\n"
-        f"Статус: {active_to_text(schedule['active'])}\n"
+        # f"Статус: {active_to_text(schedule['active'])}\n"
         f"id: {schedule['id']}"
     )
 
@@ -132,12 +132,12 @@ def format_schedules_grouped(schedules: list[dict]) -> str:
     for pet_name, pet_schedules in grouped.items():
         pet_type = pet_schedules[0].get("pet_type", "???")
 
+        lines.append("────────────────")
         lines.append(f"🐾 *{pet_name}* _({pet_type})_")
-        lines.append("────────────────────")
 
         for s in pet_schedules:
             lines.append(
-                f"🔹 `{s['id']}`: "
+                f"`{s['id']}`: "
                 f"{s['procedure_name']} — _{format_schedule_period(s)}_"
             )
 

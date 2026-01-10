@@ -29,9 +29,9 @@ async def procedures_menu(message: Message, state: FSMContext):
         return
 
     text = "Активные процедуры:\n"
-    text += "────────────────────\n"
+    text += "────────────────\n"
     text += "\n".join(
-        f"🔹 `{p['id']}`: *{p['name']}*"
+        f"`{p['id']}`: *{p['name']}*"
         + (f" (_{p['description']}_)" if p.get("description") else "")
         for p in procedures
     )
@@ -242,7 +242,7 @@ async def procedure_deactivate_process(message: Message, state: FSMContext):
         return
 
     text = "Активные процедуры:\n\n"
-    text += "────────────────────\n"
+    text += "────────────────\n"
     text += "\n".join(
         f"🔹 `{p['id']}`: *{p['name']}*"
         + (f" (_{p['description']}_)" if p.get("description") else "")

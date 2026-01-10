@@ -62,6 +62,7 @@ class Checklist:
                     c.status,
                     p.name AS pet_name,
                     pr.name AS procedure_name,
+                    pr.id as procedure_id,
                     sh.end_date AS end_date,
                     pr.description AS procedure_description
                 FROM checklist c
@@ -74,7 +75,7 @@ class Checklist:
                         sh.end_date >= ?
                         OR sh.end_date is NULL
                     )
-                ORDER BY p.name, pr.name
+                ORDER BY pr.name, p.name
             """, (today, today))
 
             rows = cursor.fetchall()
@@ -84,6 +85,7 @@ class Checklist:
                 "id": row["id"],
                 "status": bool(row["status"]),
                 "pet_name": row["pet_name"],
+                "procedure_id": row["procedure_id"],
                 "procedure_name": row["procedure_name"],
                 "procedure_description": row["procedure_description"],
             }

@@ -3,6 +3,8 @@ from aiogram.types import Message
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 
+from datetime import date
+
 from data_access.pet import Pet
 from states.pets import PetsStates
 from keyboards.pets import (
@@ -11,7 +13,7 @@ from keyboards.pets import (
     pet_deactivate_keyboard,
 )
 from core.dates import parse_user_date
-from utils.formatters import format_pet
+from utils.formatters import format_pet, _format_full_date
 
 router = Router()
 
@@ -30,9 +32,9 @@ async def pets_menu(message: Message, state: FSMContext):
         return
 
     text = "Активные питомцы:\n"
-    text += "────────────────────\n"
+    text += "────────────────\n"
     text += "\n".join(
-        f"🔹 `{p['id']}`: *{p['name']}* (_{p['type']}_)" for p in pets
+        f"`{p['id']}`: *{p['name']}* (_{p['type']}_)" for p in pets
         )
     text += "\n\n👉 Введите id:"
 
@@ -109,7 +111,7 @@ async def pet_select_start(message: Message, state: FSMContext):
         return
 
     text = "Активные питомцы:\n"
-    text += "────────────────────\n"
+    text += "────────────────\n"
     text += "\n".join(
         f"🔹 `{p['id']}`: *{p['name']}* (_{p['type']}_)" for p in pets
         )
@@ -214,9 +216,11 @@ async def pet_change_type_process(message: Message, state: FSMContext):
 
 @router.message(PetsStates.action_select, F.text == "📅 Изменить дату рождения")
 async def pet_change_date_start(message: Message, state: FSMContext):
+    date_example = _format_full_date(date.today().isoformat())
+
     await state.set_state(PetsStates.date_waiting)
     await message.answer(
-        "Укажите дату, например `22.05.2000`:",
+        f"Укажите дату, например `{date_example}`:",
         parse_mode='Markdown'
         )
 
@@ -294,7 +298,7 @@ async def pet_deactivate_process(message: Message, state: FSMContext):
         return
 
     text = "Активные питомцы:\n"
-    text += "────────────────────\n"
+    text += "────────────────\n"
     text += "\n".join(
         f"🔹 `{p['id']}`: *{p['name']}* (_{p['type']}_)" for p in pets
         )

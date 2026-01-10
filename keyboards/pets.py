@@ -23,7 +23,7 @@ def pet_actions_keyboard() -> ReplyKeyboardMarkup:
     builder.add(
         KeyboardButton(text="✏️ Изменить имя"),
         KeyboardButton(text="✏️ Изменить тип"),
-        KeyboardButton(text="📅 Изменить дату рождения"),
+        # KeyboardButton(text="📅 Изменить дату рождения"),
         KeyboardButton(text="⛔ Деактивировать"),
         KeyboardButton(text="📋 Выбрать другого"),
     )

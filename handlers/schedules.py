@@ -22,10 +22,10 @@ from keyboards.schedules import (
 from utils.formatters import (
     format_schedule,
     format_schedules_grouped,
+    _format_full_date
 )
 
 from core.dates import parse_user_date
-from utils.formatters import _format_full_date
 
 router = Router()
 
@@ -71,7 +71,7 @@ async def schedule_create_start(message: Message, state: FSMContext):
 
     text = "Выберите питомца:\n\n"
     text += "\n".join(
-        f"🔹 `{p['id']}`: *{p['name']}* (_{p['type']}_)" for p in pets
+        f"`{p['id']}`: *{p['name']}* (_{p['type']}_)" for p in pets
         )
     text += "\n\n👉 Введите `id`:"
 
@@ -127,7 +127,7 @@ async def schedule_create_pet_selected(message: Message, state: FSMContext):
 
     text = "Выберите процедуру:\n\n"
     text += "\n".join(
-        f"🔹 `{p['id']}`: *{p['name']}*"
+        f"`{p['id']}`: *{p['name']}*"
         + (f" (_{p['description']}_)" if p.get("description") else "")
         for p in procedures
     )
@@ -289,6 +289,8 @@ async def schedule_edit_start(message: Message, state: FSMContext):
         ~F.text.startswith("/")
         )
 async def schedule_type_selected(message: Message, state: FSMContext):
+    date_example = _format_full_date(date.today().isoformat())
+
     mapping_ids = {
         "Каждые Х дней": 1,
         "Каждую неделю": 2,
@@ -301,8 +303,8 @@ async def schedule_type_selected(message: Message, state: FSMContext):
         "Каждые Х дней": "Введите число дней между повторениями, например `2`:",
         "Каждую неделю": "Перечислите дни недели через запятую, например `пн, ср, пт`:",
         "Каждый месяц": "Укажите день месяца, например `31`:",
-        "Каждый год": "Укажите дату, например `22.05.2000`:",
-        "Конкретный день": "Укажите дату, например `22.05.2000`:"
+        "Каждый год": f"Укажите дату, например `{date_example}`:",
+        "Конкретный день": f"Укажите дату, например `{date_example}`:"
     }
 
     if message.text == "❌ Отмена":
@@ -375,9 +377,11 @@ async def schedule_value_entered(message: Message, state: FSMContext):
         F.text == "✏️ Изменить начало"
         )
 async def schedule_edit_start_date(message: Message, state: FSMContext):
+    date_example = _format_full_date(date.today().isoformat())
+
     await state.set_state(SchedulesStates.waiting_for_start_date)
     await message.answer(
-        "Укажите дату, например `22.05.2000`:",
+        f"Укажите дату, например `{date_example}`:",
         parse_mode='Markdown'
         )
 
@@ -413,9 +417,11 @@ async def start_date_change_process(message: Message, state: FSMContext):
         F.text == "✏️ Изменить завершение"
         )
 async def schedule_edit_end_date(message: Message, state: FSMContext):
+    date_example = _format_full_date(date.today().isoformat())
+
     await state.set_state(SchedulesStates.waiting_for_end_date)
     await message.answer(
-        "Укажите дату, например `22.05.2000`:",
+        f"Укажите дату, например `{date_example}`:",
         parse_mode='Markdown'
         )
 
