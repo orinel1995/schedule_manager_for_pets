@@ -241,7 +241,7 @@ async def procedure_deactivate_process(message: Message, state: FSMContext):
         )
         return
 
-    text = "Активные процедуры:\n\n"
+    text = "Активные процедуры:\n"
     text += "────────────────\n"
     text += "\n".join(
         f"🔹 `{p['id']}`: *{p['name']}*"

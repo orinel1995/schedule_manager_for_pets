@@ -22,7 +22,7 @@ from keyboards.schedules import (
 from utils.formatters import (
     format_schedule,
     format_schedules_grouped,
-    _format_full_date
+    format_recommendation_date
 )
 
 from core.dates import parse_user_date
@@ -289,7 +289,7 @@ async def schedule_edit_start(message: Message, state: FSMContext):
         ~F.text.startswith("/")
         )
 async def schedule_type_selected(message: Message, state: FSMContext):
-    date_example = _format_full_date(date.today().isoformat())
+    date_example = format_recommendation_date(date.today().isoformat())
 
     mapping_ids = {
         "Каждые Х дней": 1,
@@ -377,7 +377,7 @@ async def schedule_value_entered(message: Message, state: FSMContext):
         F.text == "✏️ Изменить начало"
         )
 async def schedule_edit_start_date(message: Message, state: FSMContext):
-    date_example = _format_full_date(date.today().isoformat())
+    date_example = format_recommendation_date(date.today().isoformat())
 
     await state.set_state(SchedulesStates.waiting_for_start_date)
     await message.answer(
@@ -417,7 +417,7 @@ async def start_date_change_process(message: Message, state: FSMContext):
         F.text == "✏️ Изменить завершение"
         )
 async def schedule_edit_end_date(message: Message, state: FSMContext):
-    date_example = _format_full_date(date.today().isoformat())
+    date_example = format_recommendation_date(date.today().isoformat())
 
     await state.set_state(SchedulesStates.waiting_for_end_date)
     await message.answer(
@@ -447,7 +447,7 @@ async def end_date_change_process(message: Message, state: FSMContext):
     if parsed_obj < start_date_obj:
         await message.answer(
             f"Дата завершения не может быть меньше даты начала "
-            f"({_format_full_date(schedule['start_date'])})\n\n"
+            f"({format_recommendation_date(schedule['start_date'])})\n\n"
             f"👉 Попробуйте снова:"
         )
         return

@@ -119,6 +119,16 @@ def _create_tables(conn: sqlite3.Connection) -> None:
     );
     """)
 
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS notification (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL UNIQUE,
+        value TEXT
+    );
+    """)
+
+    conn.commit()
+
 
 def _init_schedule_types(conn: sqlite3.Connection) -> None:
     cursor = conn.cursor()
@@ -143,6 +153,8 @@ def _init_schedule_types(conn: sqlite3.Connection) -> None:
         "INSERT INTO schedule_types (description) VALUES (?)",
         [(v,) for v in values]
     )
+
+    conn.commit()
 
     logger.info(
         f"Таблица schedule_types инициализирована ({len(values)} записей)",

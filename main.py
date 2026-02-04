@@ -3,6 +3,7 @@ import asyncio
 from core.db import init_database
 from core.logger import get_logger
 from bot import create_bot_and_dispatcher
+from services.notification_scheduler import notification_scheduler
 from aiogram.types import BotCommand, MenuButtonCommands
 
 
@@ -15,11 +16,15 @@ async def main() -> None:
     """
     init_database()
     bot, dp = create_bot_and_dispatcher()
+
+    asyncio.create_task(notification_scheduler(bot))
+
     await bot.set_my_commands([
         BotCommand(command="pets", description="🐾 Питомцы"),
         BotCommand(command="procedures", description="🧪 Процедуры"),
         BotCommand(command="schedules", description="📅 Расписания"),
         BotCommand(command="today_tasks", description="📋 Задания на сегодня"),
+        BotCommand(command="reminder", description="⏰ Напоминание"),
     ])
 
     await bot.set_chat_menu_button(
@@ -29,12 +34,10 @@ async def main() -> None:
 
     try:
         await dp.start_polling(bot)
-
     except asyncio.CancelledError:
         # Нормальная остановка (Ctrl+C, SIGTERM)
         logger.info("Telegram-бот остановлен", extra={"user": "system"})
         raise
-
     except Exception:
         # Любая реальная ошибка
         logger.exception(
@@ -42,9 +45,9 @@ async def main() -> None:
             extra={"user": "system"}
         )
         raise
-
     finally:
         logger.info("Завершение работы приложения", extra={"user": "system"})
+        await bot.session.close()
 
 
 if __name__ == "__main__":

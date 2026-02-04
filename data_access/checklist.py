@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 from typing import List, Dict
 
 from core.db import db_connection, DB_NAME, USER_NAME
@@ -171,3 +171,57 @@ class Checklist:
                         """, (row["id"],))
 
             conn.commit()
+
+    def get_last_week_completion(self) -> list[tuple[str, float]]:
+        """
+        Возвращает список кортежей (date, mean(status)) за последние 7 дней,
+        где максимальная дата — вчера.
+        """
+        end_date = date.today() - timedelta(days=1)
+        start_date = end_date - timedelta(days=20)
+
+        with db_connection(self.db_name) as conn:
+            cursor = conn.cursor()
+
+            cursor.execute("""
+                SELECT
+                    date,
+                    AVG(status) AS completion_ratio
+                FROM checklist
+                WHERE date BETWEEN ? AND ?
+                GROUP BY date
+                ORDER BY date
+            """, (
+                start_date.isoformat(),
+                end_date.isoformat(),
+            ))
+
+            rows = cursor.fetchall()
+
+        return [
+            (row["date"], float(row["completion_ratio"]))
+            for row in rows
+        ]
+
+    def get_today_completion(self) -> float:
+        """
+        Возвращает средний статус выполнения задач за сегодня (0..1).
+        Если задач на сегодня нет, возвращает 1.0
+        """
+        today_date = date.today().isoformat()
+
+        with db_connection(self.db_name) as conn:
+            cursor = conn.cursor()
+
+            cursor.execute("""
+                SELECT AVG(status) AS completion_ratio
+                FROM checklist
+                WHERE date = ?
+            """, (today_date,))
+
+            row = cursor.fetchone()
+
+        if row is None or row[0] is None:
+            return 1.0
+
+        return float(row[0])

@@ -51,6 +51,11 @@ def _format_full_date(value: str) -> str:
     return f"{date.day} {MONTHS_RU[date.month]} {date.year}"
 
 
+def format_recommendation_date(value: str) -> str:
+    date = datetime.strptime(value, "%Y-%m-%d")
+    return date.strftime("%d.%m.%Y")
+
+
 def pluralize_days(value: int) -> str:
     if 11 <= value % 100 <= 14:
         return "дней"
